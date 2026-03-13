@@ -1,0 +1,546 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+  <title>Apple Music Remote</title>
+  <style>
+    /* ── Reset & Base ────────────────────────────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --accent:    #fc3c44;
+      --bg:        #0a0a0a;
+      --surface:   #1a1a1a;
+      --surface2:  #222;
+      --text:      #f5f5f5;
+      --muted:     #888;
+      --radius:    14px;
+    }
+
+    html, body {
+      height: 100%;
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+      -webkit-font-smoothing: antialiased;
+      overscroll-behavior: none;
+    }
+
+    /* ── Layout ──────────────────────────────────────────────────────────────── */
+    .page {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      min-height: 100dvh;
+      padding: 24px 20px env(safe-area-inset-bottom, 16px);
+      gap: 0;
+    }
+
+    /* ── Status bar ──────────────────────────────────────────────────────────── */
+    .status-bar {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 12px;
+      color: var(--muted);
+      margin-bottom: 28px;
+      align-self: stretch;
+      justify-content: flex-end;
+    }
+
+    .status-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: #555;
+      transition: background 0.4s;
+    }
+    .status-dot.connected    { background: #30d158; }
+    .status-dot.disconnected { background: #ff453a; }
+
+    /* ── Artwork ─────────────────────────────────────────────────────────────── */
+    .artwork-wrap {
+      width: min(72vw, 280px);
+      aspect-ratio: 1;
+      border-radius: var(--radius);
+      overflow: hidden;
+      background: var(--surface2);
+      box-shadow: 0 20px 60px rgba(0,0,0,0.7);
+      margin-bottom: 28px;
+      flex-shrink: 0;
+      transition: transform 0.3s ease;
+    }
+
+    .artwork-wrap.playing { transform: scale(1.04); }
+
+    .artwork-wrap img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+    }
+
+    /* ── Track info ──────────────────────────────────────────────────────────── */
+    .track-info {
+      width: 100%;
+      max-width: 340px;
+      text-align: center;
+      margin-bottom: 20px;
+    }
+
+    .track-title {
+      font-size: 20px;
+      font-weight: 700;
+      line-height: 1.2;
+      margin-bottom: 5px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .track-artist {
+      font-size: 15px;
+      color: var(--accent);
+      font-weight: 500;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .track-album {
+      font-size: 13px;
+      color: var(--muted);
+      margin-top: 2px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    /* ── Progress bar ────────────────────────────────────────────────────────── */
+    .progress-section {
+      width: 100%;
+      max-width: 340px;
+      margin-bottom: 28px;
+    }
+
+    .progress-track {
+      width: 100%;
+      height: 24px;          /* tall touch/click target */
+      cursor: pointer;
+      position: relative;
+      margin-bottom: 6px;
+    }
+
+    /* The visible 4px bar — centred inside the tall touch area */
+    .progress-track::before {
+      content: '';
+      position: absolute;
+      top: 50%; left: 0; right: 0;
+      height: 4px;
+      transform: translateY(-50%);
+      background: var(--surface2);
+      border-radius: 2px;
+    }
+
+    .progress-fill {
+      position: absolute;
+      top: 50%; left: 0;
+      height: 4px;
+      transform: translateY(-50%);
+      background: var(--text);
+      border-radius: 2px;
+      width: 0%;
+      transition: width 0.5s linear;
+      pointer-events: none;
+    }
+
+    .progress-times {
+      display: flex;
+      justify-content: space-between;
+      font-size: 11px;
+      color: var(--muted);
+    }
+
+    /* ── Controls ────────────────────────────────────────────────────────────── */
+    .controls {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 28px;
+      width: 100%;
+      max-width: 340px;
+      margin-bottom: 32px;
+    }
+
+    .ctrl-btn {
+      background: none;
+      border: none;
+      color: var(--text);
+      cursor: pointer;
+      padding: 8px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: opacity 0.15s, transform 0.1s;
+      -webkit-tap-highlight-color: transparent;
+      touch-action: manipulation;
+    }
+
+    .ctrl-btn:active {
+      opacity: 0.5;
+      transform: scale(0.9);
+    }
+
+    .ctrl-btn.play-pause {
+      width: 68px;
+      height: 68px;
+      background: var(--text);
+      color: var(--bg);
+      border-radius: 50%;
+      box-shadow: 0 4px 20px rgba(255,255,255,0.15);
+    }
+
+    .ctrl-btn.play-pause svg { width: 28px; height: 28px; }
+    .ctrl-btn.skip svg       { width: 32px; height: 32px; }
+
+    /* ── Volume ──────────────────────────────────────────────────────────────── */
+    .volume-section {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      width: 100%;
+      max-width: 340px;
+    }
+
+    .volume-section svg { color: var(--muted); flex-shrink: 0; }
+
+    input[type=range] {
+      -webkit-appearance: none;
+      appearance: none;
+      flex: 1;
+      height: 4px;
+      border-radius: 2px;
+      background: var(--surface2);
+      cursor: pointer;
+      outline: none;
+    }
+
+    input[type=range]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      background: var(--text);
+      cursor: pointer;
+    }
+
+    /* ── No host overlay ─────────────────────────────────────────────────────── */
+    #noHostOverlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.88);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+      z-index: 100;
+      padding: 32px;
+      text-align: center;
+    }
+
+    #noHostOverlay.hidden { display: none; }
+
+    #noHostOverlay svg { color: var(--accent); }
+
+    #noHostOverlay h2 {
+      font-size: 20px;
+      font-weight: 700;
+    }
+
+    #noHostOverlay p {
+      font-size: 14px;
+      color: var(--muted);
+      max-width: 260px;
+      line-height: 1.5;
+    }
+  </style>
+</head>
+<body>
+
+<div class="page">
+
+  <!-- Status Bar -->
+  <div class="status-bar">
+    <div class="status-dot" id="statusDot"></div>
+    <span id="statusText">Connecting…</span>
+  </div>
+
+  <!-- Artwork -->
+  <div class="artwork-wrap" id="artworkWrap">
+    <img id="artworkImg" src="" alt="Album art" />
+  </div>
+
+  <!-- Track Info -->
+  <div class="track-info">
+    <div class="track-title"  id="trackTitle">—</div>
+    <div class="track-artist" id="trackArtist">—</div>
+    <div class="track-album"  id="trackAlbum"></div>
+  </div>
+
+  <!-- Progress -->
+  <div class="progress-section">
+    <div class="progress-track" id="progressTrack">
+      <div class="progress-fill" id="progressFill"></div>
+    </div>
+    <div class="progress-times">
+      <span id="timeElapsed">0:00</span>
+      <span id="timeDuration">0:00</span>
+    </div>
+  </div>
+
+  <!-- Controls -->
+  <div class="controls">
+    <!-- Previous -->
+    <button class="ctrl-btn skip" id="btnPrev" aria-label="Previous">
+      <svg viewBox="0 0 32 32" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
+        <path d="M6 7h2.5v7.9L25 5.2v21.6L8.5 17.1V25H6V7z"/>
+      </svg>
+    </button>
+
+    <!-- Play / Pause -->
+    <button class="ctrl-btn play-pause" id="btnPlayPause" aria-label="Play/Pause">
+      <!-- Defaults to "play" icon; JS swaps to "pause" when playing -->
+      <svg id="iconPlay" viewBox="0 0 28 28" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
+        <path d="M7 4l18 10L7 24V4z"/>
+      </svg>
+      <svg id="iconPause" viewBox="0 0 28 28" fill="currentColor" xmlns="http://www.w3.org/2000/svg" style="display:none">
+        <rect x="6"  y="4" width="5" height="20" rx="2"/>
+        <rect x="17" y="4" width="5" height="20" rx="2"/>
+      </svg>
+    </button>
+
+    <!-- Next -->
+    <button class="ctrl-btn skip" id="btnNext" aria-label="Next">
+      <svg viewBox="0 0 32 32" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
+        <path d="M26 7h-2.5v7.9L7 5.2v21.6l16.5-9.7V25H26V7z"/>
+      </svg>
+    </button>
+  </div>
+
+  <!-- Volume -->
+  <div class="volume-section">
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
+      <path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02z"/>
+    </svg>
+    <input type="range" id="volumeSlider" min="0" max="100" value="80" aria-label="Volume" />
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
+      <path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/>
+    </svg>
+  </div>
+
+</div>
+
+<!-- No Host overlay -->
+<div id="noHostOverlay">
+  <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" xmlns="http://www.w3.org/2000/svg">
+    <circle cx="12" cy="12" r="10"/>
+    <line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/>
+  </svg>
+  <h2>No host connected</h2>
+  <p>Make sure Apple Music is open in Chrome with the extension enabled, and that it's connected to this relay server.</p>
+</div>
+
+<script>
+(function () {
+  'use strict';
+
+  // ── Config ───────────────────────────────────────────────────────────────────
+  // Auto-detect WebSocket URL from page origin (works locally and when deployed).
+  // http → ws, https → wss
+  const WS_URL = window.location.origin.replace(/^http/, 'ws');
+
+  // ── Elements ─────────────────────────────────────────────────────────────────
+  const statusDot    = document.getElementById('statusDot');
+  const statusText   = document.getElementById('statusText');
+  const artworkWrap  = document.getElementById('artworkWrap');
+  const artworkImg   = document.getElementById('artworkImg');
+  const trackTitle   = document.getElementById('trackTitle');
+  const trackArtist  = document.getElementById('trackArtist');
+  const trackAlbum   = document.getElementById('trackAlbum');
+  const progressFill = document.getElementById('progressFill');
+  const progressTrack= document.getElementById('progressTrack');
+  const timeElapsed  = document.getElementById('timeElapsed');
+  const timeDuration = document.getElementById('timeDuration');
+  const btnPlayPause = document.getElementById('btnPlayPause');
+  const iconPlay     = document.getElementById('iconPlay');
+  const iconPause    = document.getElementById('iconPause');
+  const btnPrev      = document.getElementById('btnPrev');
+  const btnNext      = document.getElementById('btnNext');
+  const volumeSlider = document.getElementById('volumeSlider');
+  const noHostOverlay= document.getElementById('noHostOverlay');
+
+  // ── State ─────────────────────────────────────────────────────────────────────
+  let isPlaying   = false;
+  let currentTime = 0;
+  let duration    = 0;
+  let ws          = null;
+  let reconnectTimer = null;
+  let isScrubbing = false; // suppress progress bar updates from server while dragging
+
+  // ── WebSocket ─────────────────────────────────────────────────────────────────
+  function connect() {
+    if (ws) { ws.onopen = ws.onmessage = ws.onerror = ws.onclose = null; ws.close(); }
+    clearTimeout(reconnectTimer);
+    setConnectionStatus(false);
+
+    try { ws = new WebSocket(WS_URL); } catch (e) {
+      scheduleReconnect(); return;
+    }
+
+    ws.onopen = () => {
+      setConnectionStatus(true);
+      send({ type: 'register', role: 'remote' });
+    };
+
+    ws.onmessage = (event) => {
+      let data;
+      try { data = JSON.parse(event.data); } catch { return; }
+
+      if (data.type === 'state')            updateUI(data);
+      if (data.type === 'host_connected')   noHostOverlay.classList.add('hidden');
+      if (data.type === 'host_disconnected')noHostOverlay.classList.remove('hidden');
+    };
+
+    ws.onclose = () => {
+      setConnectionStatus(false);
+      scheduleReconnect();
+    };
+
+    ws.onerror = () => {};
+  }
+
+  function scheduleReconnect() {
+    reconnectTimer = setTimeout(connect, 3000);
+  }
+
+  function send(data) {
+    if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(data));
+  }
+
+  // ── Update UI from state ───────────────────────────────────────────────────────
+  function updateUI(data) {
+    isPlaying   = data.isPlaying;
+    currentTime = data.currentTime || 0;
+    duration    = data.duration    || 0;
+
+    trackTitle.textContent  = data.title  || '—';
+    trackArtist.textContent = data.artist || '—';
+    trackAlbum.textContent  = data.album  || '';
+
+    if (data.artwork && data.artwork !== artworkImg.src) artworkImg.src = data.artwork;
+    artworkWrap.classList.toggle('playing', isPlaying);
+
+    iconPlay.style.display  = isPlaying ? 'none'  : 'block';
+    iconPause.style.display = isPlaying ? 'block' : 'none';
+
+    // Don't overwrite progress bar visuals while the user is scrubbing
+    if (!isScrubbing) {
+      const pct = duration > 0 ? (currentTime / duration) * 100 : 0;
+      progressFill.style.width = pct + '%';
+      timeElapsed.textContent  = formatTime(currentTime);
+      timeDuration.textContent = formatTime(duration);
+    }
+  }
+
+  // ── Controls ──────────────────────────────────────────────────────────────────
+  btnPlayPause.addEventListener('click', () => sendCommand('TOGGLE_PLAY'));
+  btnPrev.addEventListener('click',      () => sendCommand('PREV'));
+  btnNext.addEventListener('click',      () => sendCommand('NEXT'));
+
+  // ── Progress bar scrubbing (mouse + touch) ───────────────────────────────────
+  let scrubSeekTimer = null;
+
+  function getRatioFromEvent(e) {
+    const rect = progressTrack.getBoundingClientRect();
+    const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+    return Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
+  }
+
+  function applyScrubbedPosition(ratio) {
+    const seekTime = ratio * duration;
+    // Update the bar visually immediately for a smooth feel
+    progressFill.style.width = (ratio * 100) + '%';
+    timeElapsed.textContent  = formatTime(seekTime);
+    // Debounce the actual seek so we don't flood the server while dragging
+    clearTimeout(scrubSeekTimer);
+    scrubSeekTimer = setTimeout(() => {
+      sendCommand('SEEK', { seekTime });
+    }, 80);
+  }
+
+  function onScrubStart(e) {
+    if (!duration) return;
+    e.preventDefault();
+    isScrubbing = true;
+    applyScrubbedPosition(getRatioFromEvent(e));
+  }
+
+  function onScrubMove(e) {
+    if (!isScrubbing) return;
+    e.preventDefault();
+    applyScrubbedPosition(getRatioFromEvent(e));
+  }
+
+  function onScrubEnd(e) {
+    if (!isScrubbing) return;
+    isScrubbing = false;
+    clearTimeout(scrubSeekTimer);
+    // Send the final seek immediately on release
+    const ratio = getRatioFromEvent(e.changedTouches ? { clientX: e.changedTouches[0].clientX } : e);
+    sendCommand('SEEK', { seekTime: ratio * duration });
+  }
+
+  // Mouse events
+  progressTrack.addEventListener('mousedown', onScrubStart);
+  document.addEventListener('mousemove', onScrubMove);
+  document.addEventListener('mouseup', onScrubEnd);
+
+  // Touch events (passive: false so we can preventDefault and stop page scroll)
+  progressTrack.addEventListener('touchstart', onScrubStart, { passive: false });
+  document.addEventListener('touchmove', onScrubMove, { passive: false });
+  document.addEventListener('touchend', onScrubEnd);
+
+  let volumeTimer = null;
+  volumeSlider.addEventListener('input', () => {
+    clearTimeout(volumeTimer);
+    volumeTimer = setTimeout(() => sendCommand('SET_VOLUME', { volume: volumeSlider.value / 100 }), 120);
+  });
+
+  function sendCommand(action, extra) {
+    // Use 'action' field so 'type: command' is not overwritten by the spread
+    send({ type: 'command', action, ...extra });
+  }
+
+  // ── Helpers ───────────────────────────────────────────────────────────────────
+  function setConnectionStatus(connected) {
+    statusDot.className = 'status-dot ' + (connected ? 'connected' : 'disconnected');
+    statusText.textContent = connected ? 'Connected' : 'Reconnecting…';
+  }
+
+  function formatTime(seconds) {
+    if (!isFinite(seconds) || seconds < 0) return '0:00';
+    const m = Math.floor(seconds / 60);
+    const s = Math.floor(seconds % 60);
+    return m + ':' + String(s).padStart(2, '0');
+  }
+
+  // ── Init ──────────────────────────────────────────────────────────────────────
+  connect();
+})();
+</script>
+</body>
+</html>

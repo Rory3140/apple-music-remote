@@ -1,0 +1,39 @@
+{
+  "manifest_version": 3,
+  "name": "Apple Music Remote",
+  "version": "1.0.0",
+  "description": "Control Apple Music from any device via a relay server.",
+
+  "permissions": [
+    "storage",
+    "alarms"
+  ],
+
+  "host_permissions": [
+    "https://music.apple.com/*"
+  ],
+
+  "background": {
+    "service_worker": "background.js"
+  },
+
+  "content_scripts": [
+    {
+      "matches": ["https://music.apple.com/*"],
+      "js": ["content.js"],
+      "run_at": "document_idle"
+    }
+  ],
+
+  "web_accessible_resources": [
+    {
+      "resources": ["injected.js"],
+      "matches": ["https://music.apple.com/*"]
+    }
+  ],
+
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "Apple Music Remote"
+  }
+}

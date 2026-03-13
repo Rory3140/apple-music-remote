@@ -1,0 +1,13 @@
+# Dependencies
+server/node_modules/
+
+# Environment
+server/.env
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Editor
+.vscode/
+.idea/
