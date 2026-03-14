@@ -11,3 +11,8 @@ Thumbs.db
 # Editor
 .vscode/
 .idea/
+
+# Docs
+INSTRUCTIONS.md
+GOTCHAS.md
+TESTING.md
