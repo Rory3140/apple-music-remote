@@ -1,0 +1,8 @@
+server/node_modules
+server/.env
+.git
+.claude
+extension
+*.md
+.gitignore
+.DS_Store

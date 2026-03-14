@@ -6,7 +6,7 @@
 // ─── Configuration ───────────────────────────────────────────────────────────
 // Change this to your deployed server URL when you deploy.
 // Use ws:// for http servers, wss:// for https servers.
-const RELAY_WS_URL = 'ws://localhost:3000';
+const RELAY_WS_URL = 'wss://apple-music-remote-802824893434.us-central1.run.app';
 
 // ─── State ───────────────────────────────────────────────────────────────────
 let ws = null;
