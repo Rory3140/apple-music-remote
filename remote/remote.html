@@ -81,6 +81,27 @@
       display: block;
     }
 
+    .artwork-placeholder {
+      display: none;
+      width: 100%;
+      height: 100%;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      background: linear-gradient(145deg, #1e1e1e, #2a2a2a);
+      color: #3a3a3a;
+    }
+
+    .artwork-placeholder svg {
+      width: 56px;
+      height: 56px;
+      opacity: 0.5;
+    }
+
+    .artwork-wrap.no-artwork img         { display: none; }
+    .artwork-wrap.no-artwork .artwork-placeholder { display: flex; }
+
     /* ── Track info ──────────────────────────────────────────────────────────── */
     .track-info {
       width: 100%;
@@ -280,8 +301,13 @@
   </div>
 
   <!-- Artwork -->
-  <div class="artwork-wrap" id="artworkWrap">
+  <div class="artwork-wrap no-artwork" id="artworkWrap">
     <img id="artworkImg" src="" alt="Album art" />
+    <div class="artwork-placeholder">
+      <svg viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
+        <path d="M12 3v10.55A4 4 0 1 0 14 17V7h4V3h-6z"/>
+      </svg>
+    </div>
   </div>
 
   <!-- Track Info -->
@@ -441,7 +467,13 @@
     trackArtist.textContent = data.artist || '—';
     trackAlbum.textContent  = data.album  || '';
 
-    if (data.artwork && data.artwork !== artworkImg.src) artworkImg.src = data.artwork;
+    if (data.artwork) {
+      if (data.artwork !== artworkImg.src) artworkImg.src = data.artwork;
+      artworkWrap.classList.remove('no-artwork');
+    } else {
+      artworkImg.src = '';
+      artworkWrap.classList.add('no-artwork');
+    }
     artworkWrap.classList.toggle('playing', isPlaying);
 
     iconPlay.style.display  = isPlaying ? 'none'  : 'block';
