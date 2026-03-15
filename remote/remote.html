@@ -13,6 +13,7 @@
       --bg:        #0a0a0a;
       --surface:   #1a1a1a;
       --surface2:  #222;
+      --surface3:  #2c2c2e;
       --text:      #f5f5f5;
       --muted:     #888;
       --radius:    14px;
@@ -34,19 +35,33 @@
       align-items: center;
       min-height: 100dvh;
       padding: 24px 20px env(safe-area-inset-bottom, 16px);
-      gap: 0;
     }
 
     /* ── Status bar ──────────────────────────────────────────────────────────── */
     .status-bar {
       display: flex;
       align-items: center;
+      width: 100%;
+      margin-bottom: 28px;
+    }
+
+    .remotes-count {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      font-size: 12px;
+      color: var(--muted);
+      flex: 1;
+    }
+
+    .remotes-count svg { opacity: 0.6; }
+
+    .connection-status {
+      display: flex;
+      align-items: center;
       gap: 6px;
       font-size: 12px;
       color: var(--muted);
-      margin-bottom: 28px;
-      align-self: stretch;
-      justify-content: flex-end;
     }
 
     .status-dot {
@@ -88,18 +103,13 @@
       flex-direction: column;
       align-items: center;
       justify-content: center;
-      gap: 10px;
       background: linear-gradient(145deg, #1e1e1e, #2a2a2a);
       color: #3a3a3a;
     }
 
-    .artwork-placeholder svg {
-      width: 56px;
-      height: 56px;
-      opacity: 0.5;
-    }
+    .artwork-placeholder svg { width: 56px; height: 56px; opacity: 0.5; }
 
-    .artwork-wrap.no-artwork img         { display: none; }
+    .artwork-wrap.no-artwork img                  { display: none; }
     .artwork-wrap.no-artwork .artwork-placeholder { display: flex; }
 
     /* ── Track info ──────────────────────────────────────────────────────────── */
@@ -142,18 +152,17 @@
     .progress-section {
       width: 100%;
       max-width: 340px;
-      margin-bottom: 28px;
+      margin-bottom: 24px;
     }
 
     .progress-track {
       width: 100%;
-      height: 24px;          /* tall touch/click target */
+      height: 24px;
       cursor: pointer;
       position: relative;
       margin-bottom: 6px;
     }
 
-    /* The visible 4px bar — centred inside the tall touch area */
     .progress-track::before {
       content: '';
       position: absolute;
@@ -188,10 +197,10 @@
       display: flex;
       align-items: center;
       justify-content: center;
-      gap: 28px;
+      gap: 20px;
       width: 100%;
       max-width: 340px;
-      margin-bottom: 32px;
+      margin-bottom: 28px;
     }
 
     .ctrl-btn {
@@ -207,6 +216,7 @@
       transition: opacity 0.15s, transform 0.1s;
       -webkit-tap-highlight-color: transparent;
       touch-action: manipulation;
+      position: relative;
     }
 
     .ctrl-btn:active {
@@ -226,6 +236,24 @@
     .ctrl-btn.play-pause svg { width: 28px; height: 28px; }
     .ctrl-btn.skip svg       { width: 32px; height: 32px; }
 
+    /* Shuffle / Repeat — smaller, muted by default, accent when active */
+    .ctrl-btn.secondary svg  { width: 22px; height: 22px; }
+    .ctrl-btn.secondary      { color: var(--muted); padding: 6px; }
+    .ctrl-btn.secondary.active { color: var(--accent); }
+
+    /* Small dot indicator under active shuffle/repeat (like Apple Music) */
+    .ctrl-btn.secondary.active::after {
+      content: '';
+      position: absolute;
+      bottom: 1px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 4px;
+      height: 4px;
+      border-radius: 50%;
+      background: var(--accent);
+    }
+
     /* ── Volume ──────────────────────────────────────────────────────────────── */
     .volume-section {
       display: flex;
@@ -233,6 +261,7 @@
       gap: 10px;
       width: 100%;
       max-width: 340px;
+      margin-bottom: 24px;
     }
 
     .volume-section svg { color: var(--muted); flex-shrink: 0; }
@@ -258,6 +287,154 @@
       cursor: pointer;
     }
 
+    /* ── Up Next button ──────────────────────────────────────────────────────── */
+    .up-next-btn {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      background: none;
+      border: none;
+      color: var(--muted);
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      padding: 6px 12px;
+      border-radius: 20px;
+      -webkit-tap-highlight-color: transparent;
+      touch-action: manipulation;
+      transition: color 0.15s;
+    }
+
+    .up-next-btn:active { color: var(--text); }
+    .up-next-btn svg    { width: 16px; height: 16px; }
+
+    /* ── Queue bottom sheet ──────────────────────────────────────────────────── */
+    .queue-backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.55);
+      z-index: 190;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.3s ease;
+    }
+
+    .queue-backdrop.open {
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    .queue-sheet {
+      position: fixed;
+      bottom: 0; left: 0; right: 0;
+      background: #1c1c1e;
+      border-radius: 20px 20px 0 0;
+      max-height: 75dvh;
+      display: flex;
+      flex-direction: column;
+      transform: translateY(100%);
+      transition: transform 0.4s cubic-bezier(0.32, 0.72, 0, 1);
+      z-index: 200;
+      padding-bottom: env(safe-area-inset-bottom, 0px);
+    }
+
+    .queue-sheet.open {
+      transform: translateY(0);
+    }
+
+    .queue-handle-wrap {
+      display: flex;
+      justify-content: center;
+      padding: 10px 0 4px;
+      flex-shrink: 0;
+    }
+
+    .queue-handle {
+      width: 36px;
+      height: 4px;
+      border-radius: 2px;
+      background: #48484a;
+    }
+
+    .queue-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 4px 20px 12px;
+      flex-shrink: 0;
+    }
+
+    .queue-header h2 {
+      font-size: 17px;
+      font-weight: 700;
+    }
+
+    .queue-done-btn {
+      background: none;
+      border: none;
+      color: var(--accent);
+      font-size: 17px;
+      font-weight: 400;
+      cursor: pointer;
+      padding: 4px 0;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    .queue-list {
+      overflow-y: auto;
+      flex: 1;
+      -webkit-overflow-scrolling: touch;
+    }
+
+    .queue-item {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 8px 20px;
+    }
+
+    .queue-item + .queue-item {
+      border-top: 1px solid rgba(255,255,255,0.06);
+    }
+
+    .qi-art {
+      width: 44px;
+      height: 44px;
+      border-radius: 6px;
+      object-fit: cover;
+      flex-shrink: 0;
+      background: var(--surface2);
+    }
+
+    .qi-info {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .qi-title {
+      font-size: 15px;
+      font-weight: 500;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .qi-artist {
+      font-size: 13px;
+      color: var(--muted);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      margin-top: 2px;
+    }
+
+    .queue-empty {
+      text-align: center;
+      color: var(--muted);
+      font-size: 14px;
+      padding: 40px 20px;
+    }
+
     /* ── No host overlay ─────────────────────────────────────────────────────── */
     #noHostOverlay {
       position: fixed;
@@ -274,7 +451,6 @@
     }
 
     #noHostOverlay.hidden { display: none; }
-
     #noHostOverlay svg { color: var(--accent); }
 
     #noHostOverlay h2 {
@@ -296,8 +472,16 @@
 
   <!-- Status Bar -->
   <div class="status-bar">
-    <div class="status-dot" id="statusDot"></div>
-    <span id="statusText">Connecting…</span>
+    <div class="remotes-count" id="remotesCount" style="visibility:hidden">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
+        <path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z"/>
+      </svg>
+      <span id="remotesText"></span>
+    </div>
+    <div class="connection-status">
+      <div class="status-dot" id="statusDot"></div>
+      <span id="statusText">Connecting…</span>
+    </div>
   </div>
 
   <!-- Artwork -->
@@ -328,18 +512,21 @@
     </div>
   </div>
 
-  <!-- Controls -->
+  <!-- Controls: Shuffle / Prev / Play-Pause / Next / Repeat -->
   <div class="controls">
-    <!-- Previous -->
+    <button class="ctrl-btn secondary" id="btnShuffle" aria-label="Shuffle">
+      <svg viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
+        <path d="M10.59 9.17L5.41 4 4 5.41l5.17 5.17 1.42-1.41zM14.5 4l2.04 2.04L4 18.59 5.41 20 17.96 7.46 20 9.5V4h-5.5zm.33 9.41l-1.41 1.41 3.13 3.13L14.5 20H20v-5.5l-2.04 2.04-3.13-3.13z"/>
+      </svg>
+    </button>
+
     <button class="ctrl-btn skip" id="btnPrev" aria-label="Previous">
       <svg viewBox="0 0 32 32" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
         <path d="M6 7h2.5v7.9L25 5.2v21.6L8.5 17.1V25H6V7z"/>
       </svg>
     </button>
 
-    <!-- Play / Pause -->
     <button class="ctrl-btn play-pause" id="btnPlayPause" aria-label="Play/Pause">
-      <!-- Defaults to "play" icon; JS swaps to "pause" when playing -->
       <svg id="iconPlay" viewBox="0 0 28 28" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
         <path d="M7 4l18 10L7 24V4z"/>
       </svg>
@@ -349,10 +536,20 @@
       </svg>
     </button>
 
-    <!-- Next -->
     <button class="ctrl-btn skip" id="btnNext" aria-label="Next">
       <svg viewBox="0 0 32 32" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
         <path d="M26 7h-2.5v7.9L7 5.2v21.6l16.5-9.7V25H26V7z"/>
+      </svg>
+    </button>
+
+    <button class="ctrl-btn secondary" id="btnRepeat" aria-label="Repeat">
+      <!-- repeat-all icon (default) -->
+      <svg id="iconRepeatAll" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
+        <path d="M7 7h10v3l4-4-4-4v3H5v6h2V7zm10 10H7v-3l-4 4 4 4v-3h12v-6h-2v4zm-4-2V9h-1l-2 1v1h1.5v4H13z"/>
+      </svg>
+      <!-- repeat-one icon (hidden unless repeat=1) -->
+      <svg id="iconRepeatOne" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg" style="display:none">
+        <path d="M7 7h10v3l4-4-4-4v3H5v6h2V7zm10 10H7v-3l-4 4 4 4v-3h12v-6h-2v4zm-4-2V9h-1l-2 1v1h1.5v4H13z"/>
       </svg>
     </button>
   </div>
@@ -368,6 +565,31 @@
     </svg>
   </div>
 
+  <!-- Up Next button -->
+  <button class="up-next-btn" id="btnQueue">
+    <svg viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
+      <path d="M3 13h2v-2H3v2zm0 4h2v-2H3v2zm0-8h2V7H3v2zm4 4h14v-2H7v2zm0 4h14v-2H7v2zM7 7v2h14V7H7z"/>
+    </svg>
+    Up Next
+  </button>
+
+</div>
+
+<!-- Queue backdrop -->
+<div class="queue-backdrop" id="queueBackdrop"></div>
+
+<!-- Queue bottom sheet -->
+<div class="queue-sheet" id="queueSheet">
+  <div class="queue-handle-wrap">
+    <div class="queue-handle"></div>
+  </div>
+  <div class="queue-header">
+    <h2>Up Next</h2>
+    <button class="queue-done-btn" id="queueDoneBtn">Done</button>
+  </div>
+  <div class="queue-list" id="queueList">
+    <div class="queue-empty">Nothing queued</div>
+  </div>
 </div>
 
 <!-- No Host overlay -->
@@ -384,14 +606,13 @@
 (function () {
   'use strict';
 
-  // ── Config ───────────────────────────────────────────────────────────────────
-  // Auto-detect WebSocket URL from page origin (works locally and when deployed).
-  // http → ws, https → wss
   const WS_URL = window.location.origin.replace(/^http/, 'ws');
 
-  // ── Elements ─────────────────────────────────────────────────────────────────
+  // ── Elements ──────────────────────────────────────────────────────────────────
   const statusDot    = document.getElementById('statusDot');
   const statusText   = document.getElementById('statusText');
+  const remotesCount = document.getElementById('remotesCount');
+  const remotesText  = document.getElementById('remotesText');
   const artworkWrap  = document.getElementById('artworkWrap');
   const artworkImg   = document.getElementById('artworkImg');
   const trackTitle   = document.getElementById('trackTitle');
@@ -406,16 +627,27 @@
   const iconPause    = document.getElementById('iconPause');
   const btnPrev      = document.getElementById('btnPrev');
   const btnNext      = document.getElementById('btnNext');
+  const btnShuffle   = document.getElementById('btnShuffle');
+  const btnRepeat    = document.getElementById('btnRepeat');
+  const iconRepeatAll= document.getElementById('iconRepeatAll');
+  const iconRepeatOne= document.getElementById('iconRepeatOne');
   const volumeSlider = document.getElementById('volumeSlider');
   const noHostOverlay= document.getElementById('noHostOverlay');
+  const btnQueue     = document.getElementById('btnQueue');
+  const queueSheet   = document.getElementById('queueSheet');
+  const queueBackdrop= document.getElementById('queueBackdrop');
+  const queueDoneBtn = document.getElementById('queueDoneBtn');
+  const queueList    = document.getElementById('queueList');
 
   // ── State ─────────────────────────────────────────────────────────────────────
   let isPlaying   = false;
   let currentTime = 0;
   let duration    = 0;
+  let repeatMode  = 0;   // 0=none, 1=one, 2=all
+  let shuffleMode = 0;   // 0=off, 1=on
   let ws          = null;
   let reconnectTimer = null;
-  let isScrubbing = false; // suppress progress bar updates from server while dragging
+  let isScrubbing = false;
 
   // ── WebSocket ─────────────────────────────────────────────────────────────────
   function connect() {
@@ -436,25 +668,29 @@
       let data;
       try { data = JSON.parse(event.data); } catch { return; }
 
-      if (data.type === 'state')            updateUI(data);
-      if (data.type === 'host_connected')   noHostOverlay.classList.add('hidden');
-      if (data.type === 'host_disconnected')noHostOverlay.classList.remove('hidden');
+      if (data.type === 'state')             updateUI(data);
+      if (data.type === 'host_connected')    noHostOverlay.classList.add('hidden');
+      if (data.type === 'host_disconnected') noHostOverlay.classList.remove('hidden');
+      if (data.type === 'headcount')         updateHeadcount(data.remotes);
     };
 
-    ws.onclose = () => {
-      setConnectionStatus(false);
-      scheduleReconnect();
-    };
-
+    ws.onclose = () => { setConnectionStatus(false); scheduleReconnect(); };
     ws.onerror = () => {};
   }
 
-  function scheduleReconnect() {
-    reconnectTimer = setTimeout(connect, 3000);
-  }
+  function scheduleReconnect() { reconnectTimer = setTimeout(connect, 3000); }
+  function send(data) { if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(data)); }
 
-  function send(data) {
-    if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(data));
+  // ── Headcount ─────────────────────────────────────────────────────────────────
+  function updateHeadcount(remotes) {
+    // Show sibling count (exclude self — server count includes this remote)
+    const others = Math.max(0, (remotes || 0) - 1);
+    if (others > 0) {
+      remotesCount.style.visibility = 'visible';
+      remotesText.textContent = `+${others} other${others === 1 ? '' : 's'}`;
+    } else {
+      remotesCount.style.visibility = 'hidden';
+    }
   }
 
   // ── Update UI from state ───────────────────────────────────────────────────────
@@ -462,6 +698,8 @@
     isPlaying   = data.isPlaying;
     currentTime = data.currentTime || 0;
     duration    = data.duration    || 0;
+    repeatMode  = typeof data.repeatMode  === 'number' ? data.repeatMode  : repeatMode;
+    shuffleMode = typeof data.shuffleMode === 'number' ? data.shuffleMode : shuffleMode;
 
     trackTitle.textContent  = data.title  || '—';
     trackArtist.textContent = data.artist || '—';
@@ -479,21 +717,73 @@
     iconPlay.style.display  = isPlaying ? 'none'  : 'block';
     iconPause.style.display = isPlaying ? 'block' : 'none';
 
-    // Don't overwrite progress bar visuals while the user is scrubbing
+    // Shuffle button
+    btnShuffle.classList.toggle('active', shuffleMode === 1);
+
+    // Repeat button — 0=off, 1=one, 2=all
+    btnRepeat.classList.toggle('active', repeatMode !== 0);
+    iconRepeatAll.style.display = repeatMode === 1 ? 'none'  : 'block';
+    iconRepeatOne.style.display = repeatMode === 1 ? 'block' : 'none';
+
     if (!isScrubbing) {
       const pct = duration > 0 ? (currentTime / duration) * 100 : 0;
       progressFill.style.width = pct + '%';
       timeElapsed.textContent  = formatTime(currentTime);
       timeDuration.textContent = formatTime(duration);
     }
+
+    // Queue
+    if (Array.isArray(data.queue)) updateQueue(data.queue);
   }
+
+  // ── Queue sheet ────────────────────────────────────────────────────────────────
+  function updateQueue(items) {
+    if (items.length === 0) {
+      queueList.innerHTML = '<div class="queue-empty">Nothing queued</div>';
+      return;
+    }
+    queueList.innerHTML = items.map(it => `
+      <div class="queue-item">
+        ${it.artwork
+          ? `<img class="qi-art" src="${escapeAttr(it.artwork)}" alt="" />`
+          : `<div class="qi-art"></div>`}
+        <div class="qi-info">
+          <div class="qi-title">${escapeHtml(it.title)}</div>
+          <div class="qi-artist">${escapeHtml(it.artist)}</div>
+        </div>
+      </div>`).join('');
+  }
+
+  function openQueue()  { queueSheet.classList.add('open'); queueBackdrop.classList.add('open'); }
+  function closeQueue() { queueSheet.classList.remove('open'); queueBackdrop.classList.remove('open'); }
+
+  btnQueue.addEventListener('click', openQueue);
+  queueDoneBtn.addEventListener('click', closeQueue);
+  queueBackdrop.addEventListener('click', closeQueue);
 
   // ── Controls ──────────────────────────────────────────────────────────────────
   btnPlayPause.addEventListener('click', () => sendCommand('TOGGLE_PLAY'));
   btnPrev.addEventListener('click',      () => sendCommand('PREV'));
   btnNext.addEventListener('click',      () => sendCommand('NEXT'));
 
-  // ── Progress bar scrubbing (mouse + touch) ───────────────────────────────────
+  btnShuffle.addEventListener('click', () => {
+    const next = shuffleMode === 0 ? 1 : 0;
+    shuffleMode = next;
+    btnShuffle.classList.toggle('active', next === 1);
+    sendCommand('SET_SHUFFLE', { shuffleMode: next });
+  });
+
+  btnRepeat.addEventListener('click', () => {
+    // Cycle: 0 (none) → 2 (all) → 1 (one) → 0
+    const next = repeatMode === 0 ? 2 : (repeatMode === 2 ? 1 : 0);
+    repeatMode = next;
+    btnRepeat.classList.toggle('active', next !== 0);
+    iconRepeatAll.style.display = next === 1 ? 'none'  : 'block';
+    iconRepeatOne.style.display = next === 1 ? 'block' : 'none';
+    sendCommand('SET_REPEAT', { repeatMode: next });
+  });
+
+  // ── Progress bar scrubbing ────────────────────────────────────────────────────
   let scrubSeekTimer = null;
 
   function getRatioFromEvent(e) {
@@ -504,14 +794,10 @@
 
   function applyScrubbedPosition(ratio) {
     const seekTime = ratio * duration;
-    // Update the bar visually immediately for a smooth feel
     progressFill.style.width = (ratio * 100) + '%';
     timeElapsed.textContent  = formatTime(seekTime);
-    // Debounce the actual seek so we don't flood the server while dragging
     clearTimeout(scrubSeekTimer);
-    scrubSeekTimer = setTimeout(() => {
-      sendCommand('SEEK', { seekTime });
-    }, 80);
+    scrubSeekTimer = setTimeout(() => sendCommand('SEEK', { seekTime }), 80);
   }
 
   function onScrubStart(e) {
@@ -531,17 +817,13 @@
     if (!isScrubbing) return;
     isScrubbing = false;
     clearTimeout(scrubSeekTimer);
-    // Send the final seek immediately on release
     const ratio = getRatioFromEvent(e.changedTouches ? { clientX: e.changedTouches[0].clientX } : e);
     sendCommand('SEEK', { seekTime: ratio * duration });
   }
 
-  // Mouse events
   progressTrack.addEventListener('mousedown', onScrubStart);
   document.addEventListener('mousemove', onScrubMove);
   document.addEventListener('mouseup', onScrubEnd);
-
-  // Touch events (passive: false so we can preventDefault and stop page scroll)
   progressTrack.addEventListener('touchstart', onScrubStart, { passive: false });
   document.addEventListener('touchmove', onScrubMove, { passive: false });
   document.addEventListener('touchend', onScrubEnd);
@@ -553,7 +835,6 @@
   });
 
   function sendCommand(action, extra) {
-    // Use 'action' field so 'type: command' is not overwritten by the spread
     send({ type: 'command', action, ...extra });
   }
 
@@ -569,6 +850,16 @@
     const s = Math.floor(seconds % 60);
     return m + ':' + String(s).padStart(2, '0');
   }
+
+  function escapeHtml(str) {
+    return String(str)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;');
+  }
+
+  function escapeAttr(str) { return escapeHtml(str); }
 
   // ── Init ──────────────────────────────────────────────────────────────────────
   connect();

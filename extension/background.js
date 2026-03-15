@@ -12,6 +12,7 @@ const RELAY_WS_URL = 'wss://apple-music-remote-802824893434.us-central1.run.app'
 let ws = null;
 let isConnected = false;
 let reconnectTimer = null;
+let remoteCount = 0;
 
 // ─── Keep-Alive (prevent service worker from sleeping) ───────────────────────
 chrome.alarms.create('keepAlive', { periodInMinutes: 0.4 }); // every ~24 seconds
@@ -57,11 +58,13 @@ function connect() {
     try {
       const data = JSON.parse(event.data);
       if (data.type === 'command') {
-        // Convert { type: 'command', action: 'TOGGLE_PLAY', ... }
-        // into   { type: 'TOGGLE_PLAY', ... } before sending to content script
         const { type: _envelope, action, ...rest } = data;
         console.log('[background] Received command:', action, rest);
         forwardToContentScript({ type: action, ...rest });
+      }
+      if (data.type === 'headcount') {
+        remoteCount = data.remotes || 0;
+        broadcastStatus();
       }
       // 'pong' messages are silently ignored
     } catch (e) {
@@ -122,7 +125,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   }
 
   if (message.type === 'GET_STATUS') {
-    sendResponse({ connected: isConnected, relayUrl: RELAY_WS_URL });
+    sendResponse({ connected: isConnected, relayUrl: RELAY_WS_URL, remoteCount });
   }
 
   return true;
@@ -130,7 +133,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
 // ─── Broadcast Connection Status to Popup ────────────────────────────────────
 function broadcastStatus() {
-  chrome.runtime.sendMessage({ type: 'CONNECTION_STATUS', connected: isConnected })
+  chrome.runtime.sendMessage({ type: 'CONNECTION_STATUS', connected: isConnected, remoteCount })
     .catch(() => {}); // Popup may not be open
 }
 

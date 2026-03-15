@@ -32,10 +32,8 @@
 
   // ─── Wait for MusicKit to be available ──────────────────────────────────────
   if (window.MusicKit) {
-    // Try immediately — may already be configured
     try { init(); } catch (_) {}
   }
-  // Always listen for the event in case it fires later
   document.addEventListener('musickitloaded', () => {
     try { init(); } catch (_) {}
   });
@@ -45,7 +43,7 @@
     const evts = [
       MusicKit.Events.playbackStateDidChange,
       MusicKit.Events.nowPlayingItemDidChange,
-      MusicKit.Events.playbackProgressDidChange, // correct v3 event name for time updates
+      MusicKit.Events.playbackProgressDidChange,
     ];
     evts.forEach((evt) => {
       try { musicKit.addEventListener(evt, sendState); } catch (_) {}
@@ -59,7 +57,6 @@
     let title = '', artist = '', album = '', artwork = '';
     let currentTime = 0, duration = 0;
 
-    // nowPlayingItem — may be null when nothing is queued
     const item = musicKit.nowPlayingItem;
     if (item) {
       title  = item.title       || item.attributes?.name        || '';
@@ -68,11 +65,34 @@
       artwork = getArtworkUrl(item);
     }
 
-    // Playback time — directly on musicKit in v3
     try { currentTime = musicKit.currentPlaybackTime     || 0; } catch (_) {}
     try { duration    = musicKit.currentPlaybackDuration || 0; } catch (_) {}
 
-    const state = {
+    // Repeat: 0 = none, 1 = one, 2 = all
+    let repeatMode = 0;
+    try { repeatMode = musicKit.repeatMode ?? 0; } catch (_) {}
+
+    // Shuffle: 0 = off, 1 = on
+    let shuffleMode = 0;
+    try { shuffleMode = musicKit.shuffleMode ?? 0; } catch (_) {}
+
+    // Queue: upcoming items after current position (max 20)
+    let queue = [];
+    try {
+      const items = musicKit.queue?.items || [];
+      const pos = typeof musicKit.queue?.position === 'number' ? musicKit.queue.position : -1;
+      for (let i = pos + 1; i < Math.min(items.length, pos + 21); i++) {
+        const it = items[i];
+        if (!it) continue;
+        queue.push({
+          title:   it.title      || it.attributes?.name       || '',
+          artist:  it.artistName || it.attributes?.artistName || '',
+          artwork: getArtworkUrl(it),
+        });
+      }
+    } catch (_) {}
+
+    window.postMessage({
       type: 'MUSIC_STATE',
       isPlaying: !!musicKit.isPlaying,
       currentTime,
@@ -81,26 +101,24 @@
       artist,
       album,
       artwork,
-    };
-
-    window.postMessage(state, '*');
+      repeatMode,
+      shuffleMode,
+      queue,
+    }, '*');
   }
 
   // ─── Artwork URL helper ──────────────────────────────────────────────────────
-  function getArtworkUrl(item) {
-    const SIZE = 300;
+  function getArtworkUrl(item, size = 300) {
     try {
-      // MusicKit.formatArtworkURL is the v3 helper
-      return MusicKit.formatArtworkURL(item.artwork, SIZE, SIZE);
+      return MusicKit.formatArtworkURL(item.artwork, size, size);
     } catch (_) {}
 
-    // Fallback: artwork object with a url template (common in v3)
     try {
       const art = item.artwork || item.attributes?.artwork;
       if (art && art.url) {
         return art.url
-          .replace('{w}', SIZE)
-          .replace('{h}', SIZE)
+          .replace('{w}', size)
+          .replace('{h}', size)
           .replace('{f}', 'jpg');
       }
     } catch (_) {}
@@ -114,7 +132,7 @@
     if (!event.data || !event.data.type) return;
     if (!musicKit) return;
 
-    const { type, seekTime, volume } = event.data;
+    const { type, seekTime, volume, repeatMode, shuffleMode } = event.data;
 
     try {
       switch (type) {
@@ -134,24 +152,24 @@
           await musicKit.skipToPreviousItem();
           break;
         case 'SEEK':
-          if (typeof seekTime === 'number') {
-            await musicKit.seekToTime(seekTime);
-          }
+          if (typeof seekTime === 'number') await musicKit.seekToTime(seekTime);
           break;
         case 'SET_VOLUME':
-          if (typeof volume === 'number') {
-            // Volume lives on musicKit directly in v3
-            musicKit.volume = Math.max(0, Math.min(1, volume));
-          }
+          if (typeof volume === 'number') musicKit.volume = Math.max(0, Math.min(1, volume));
+          break;
+        case 'SET_REPEAT':
+          if (typeof repeatMode === 'number') musicKit.repeatMode = repeatMode;
+          break;
+        case 'SET_SHUFFLE':
+          if (typeof shuffleMode === 'number') musicKit.shuffleMode = shuffleMode;
           break;
         default:
-          return; // ignore unknown types
+          return;
       }
     } catch (e) {
       console.error('[injected] Error handling command:', type, e);
     }
 
-    // Always push fresh state after any command
     sendState();
   });
 })();

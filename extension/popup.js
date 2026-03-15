@@ -10,23 +10,26 @@ const copyFeedback = document.getElementById('copyFeedback');
 // ─── Ask background for current status ───────────────────────────────────────
 chrome.runtime.sendMessage({ type: 'GET_STATUS' }, (response) => {
   if (chrome.runtime.lastError) {
-    setStatus(false, '—');
+    setStatus(false, '—', 0);
     return;
   }
   if (response) {
-    setStatus(response.connected, response.relayUrl);
+    setStatus(response.connected, response.relayUrl, response.remoteCount || 0);
   }
 });
 
 // ─── Also listen for live status changes while popup is open ─────────────────
 chrome.runtime.onMessage.addListener((message) => {
   if (message.type === 'CONNECTION_STATUS') {
-    setStatus(message.connected, serverUrl.textContent);
+    setStatus(message.connected, serverUrl.textContent, message.remoteCount || 0);
   }
 });
 
 // ─── Update UI ────────────────────────────────────────────────────────────────
-function setStatus(connected, relayUrl) {
+const remotesRow  = document.getElementById('remotesRow');
+const remotesText = document.getElementById('remotesText');
+
+function setStatus(connected, relayUrl, remoteCount) {
   if (connected) {
     statusDot.className = 'dot connected';
     statusText.textContent = 'Connected to relay server';
@@ -35,6 +38,13 @@ function setStatus(connected, relayUrl) {
     statusText.textContent = 'Not connected';
   }
   serverUrl.textContent = relayUrl || '—';
+
+  if (remoteCount > 0) {
+    remotesRow.style.display = 'flex';
+    remotesText.textContent = `${remoteCount} remote${remoteCount === 1 ? '' : 's'} connected`;
+  } else {
+    remotesRow.style.display = 'none';
+  }
 }
 
 // ─── Copy remote URL to clipboard ────────────────────────────────────────────
