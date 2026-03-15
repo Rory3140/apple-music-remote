@@ -50,8 +50,8 @@ function setStatus(connected, relayUrl, remoteCount) {
 // ─── Copy remote URL to clipboard ────────────────────────────────────────────
 copyBtn.addEventListener('click', () => {
   const relay = serverUrl.textContent || 'http://localhost:3000';
-  // The remote.html is served relative to the relay server root
-  const remoteUrl = relay.replace(/\/$/, '') + '/remote';
+  // Convert ws(s):// → http(s):// for a browser-openable URL
+  const remoteUrl = relay.replace(/^wss:\/\//, 'https://').replace(/^ws:\/\//, 'http://').replace(/\/$/, '') + '/remote';
 
   navigator.clipboard.writeText(remoteUrl).then(() => {
     copyFeedback.textContent = 'Copied!';
