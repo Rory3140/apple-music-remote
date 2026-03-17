@@ -18,10 +18,11 @@ window.addEventListener('message', (event) => {
   if (!event.data || !event.data.type) return;
 
   if (event.data.type === 'MUSIC_STATE') {
-    // Forward state update to background service worker
-    chrome.runtime.sendMessage(event.data).catch((err) => {
-      // Background may be sleeping — not critical
-    });
+    try {
+      chrome.runtime.sendMessage(event.data).catch(() => {});
+    } catch (_) {
+      // Extension context invalidated (extension reloaded) — refresh the page to reconnect
+    }
   }
 });
 
