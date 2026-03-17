@@ -26,6 +26,9 @@ app.get('/remote/', (_req, res) => {
   res.sendFile(path.resolve(__dirname, '../remote/remote.html'));
 });
 
+// Serve assets (icons etc.)
+app.use('/assets', express.static(path.resolve(__dirname, '../assets')));
+
 // Health check
 app.get('/health', (_req, res) => {
   res.json({
