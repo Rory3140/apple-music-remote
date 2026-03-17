@@ -14,7 +14,7 @@ struct MusicState {
 }
 
 struct QueueItem: Identifiable {
-    let id = UUID()
+    var id: String { "\(title)|\(artist)|\(artworkURL?.absoluteString ?? "")" }
     let title:      String
     let artist:     String
     let artworkURL: URL?
