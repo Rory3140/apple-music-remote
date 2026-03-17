@@ -1,24 +1,21 @@
-// server.js — Apple Music Remote Relay Server
-// Uses the 'ws' package (plain WebSocket) — no socket.io dependency.
-// Relays commands from remote devices to the Chrome extension host,
-// and forwards now-playing state from the host to all remote devices.
+// server.js - Apple Music Remote relay server
+// Routes state from the Chrome extension host to connected remotes, and commands back the other way.
 
 require('dotenv').config();
 
-const express    = require('express');
-const http       = require('http');
-const WebSocket  = require('ws');
-const cors       = require('cors');
-const path       = require('path');
+const express   = require('express');
+const http      = require('http');
+const WebSocket = require('ws');
+const cors      = require('cors');
+const path      = require('path');
 
 const PORT = process.env.PORT || 3000;
 
-// ─── Express App ─────────────────────────────────────────────────────────────
+// ─── Express ──────
 const app = express();
 app.use(cors());
 app.use(express.json());
 
-// Serve the remote control UI at /remote (and /remote/)
 app.get('/remote', (_req, res) => {
   res.sendFile(path.resolve(__dirname, '../remote/remote.html'));
 });
@@ -26,10 +23,9 @@ app.get('/remote/', (_req, res) => {
   res.sendFile(path.resolve(__dirname, '../remote/remote.html'));
 });
 
-// Serve assets (icons etc.)
 app.use('/assets', express.static(path.resolve(__dirname, '../assets')));
 
-// Health check
+// Cloud Run uses this to confirm the container is healthy
 app.get('/health', (_req, res) => {
   res.json({
     status: 'ok',
@@ -39,20 +35,17 @@ app.get('/health', (_req, res) => {
   });
 });
 
-// ─── HTTP Server ──────────────────────────────────────────────────────────────
+// ─── Server setup ──────
 const httpServer = http.createServer(app);
-
-// ─── WebSocket Server ─────────────────────────────────────────────────────────
 const wss = new WebSocket.Server({ server: httpServer });
 
-// ─── Client Tracking ─────────────────────────────────────────────────────────
-// Map<ws, { role: 'host'|'remote'|null }>
+// tracks every connected socket and its role (host | remote | null)
 const clients = new Map();
 
-// Last known music state — sent immediately to newly connecting remotes
+// cached so new remotes get the current track immediately on connect
 let lastKnownState = null;
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
+// ─── Helpers ──────
 function sendTo(ws, data) {
   if (ws.readyState === WebSocket.OPEN) {
     ws.send(JSON.stringify(data));
@@ -76,7 +69,13 @@ function broadcastHeadcount() {
   }
 }
 
-// ─── Connection Handler ───────────────────────────────────────────────────────
+function countRole(role) {
+  let n = 0;
+  for (const info of clients.values()) if (info.role === role) n++;
+  return n;
+}
+
+// ─── WebSocket handler ──────
 wss.on('connection', (ws) => {
   clients.set(ws, { role: null });
   console.log(`[server] Client connected (total: ${clients.size})`);
@@ -99,7 +98,6 @@ wss.on('connection', (ws) => {
         }
 
         if (role === 'remote') {
-          // Send cached state so new remote gets track info immediately
           if (lastKnownState) sendTo(ws, lastKnownState);
           if (countRole('host') > 0) sendTo(ws, { type: 'host_connected' });
         }
@@ -147,7 +145,7 @@ wss.on('connection', (ws) => {
     console.error('[server] WebSocket error:', err.message);
   });
 
-  // Server-side keep-alive ping every 30s
+  // Cloud Run closes idle connections, so we ping every 30s to keep them alive
   const pingInterval = setInterval(() => {
     if (ws.readyState === WebSocket.OPEN) {
       ws.ping();
@@ -159,15 +157,8 @@ wss.on('connection', (ws) => {
   ws.on('close', () => clearInterval(pingInterval));
 });
 
-// ─── Helper ───────────────────────────────────────────────────────────────────
-function countRole(role) {
-  let n = 0;
-  for (const info of clients.values()) if (info.role === role) n++;
-  return n;
-}
-
-// ─── Start ────────────────────────────────────────────────────────────────────
+// ─── Start ──────
 httpServer.listen(PORT, () => {
-  console.log(`[server] Apple Music Remote relay listening on port ${PORT}`);
+  console.log(`[server] Relay listening on port ${PORT}`);
   console.log(`[server] Remote UI: http://localhost:${PORT}/remote`);
 });
