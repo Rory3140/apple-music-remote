@@ -1,13 +1,14 @@
-// popup.js — Controls the popup UI
-// Queries the background service worker for connection status and relay URL.
+// popup.js - Handles the extension popup UI
 
-const statusDot  = document.getElementById('statusDot');
-const statusText = document.getElementById('statusText');
-const serverUrl  = document.getElementById('serverUrl');
-const copyBtn    = document.getElementById('copyBtn');
+const statusDot    = document.getElementById('statusDot');
+const statusText   = document.getElementById('statusText');
+const serverUrl    = document.getElementById('serverUrl');
+const copyBtn      = document.getElementById('copyBtn');
 const copyFeedback = document.getElementById('copyFeedback');
+const remotesRow   = document.getElementById('remotesRow');
+const remotesText  = document.getElementById('remotesText');
 
-// ─── Ask background for current status ───────────────────────────────────────
+// ─── Get current status from background worker ──────
 chrome.runtime.sendMessage({ type: 'GET_STATUS' }, (response) => {
   if (chrome.runtime.lastError) {
     setStatus(false, '—', 0);
@@ -18,17 +19,14 @@ chrome.runtime.sendMessage({ type: 'GET_STATUS' }, (response) => {
   }
 });
 
-// ─── Also listen for live status changes while popup is open ─────────────────
+// listen for live updates while popup is open
 chrome.runtime.onMessage.addListener((message) => {
   if (message.type === 'CONNECTION_STATUS') {
     setStatus(message.connected, serverUrl.textContent, message.remoteCount || 0);
   }
 });
 
-// ─── Update UI ────────────────────────────────────────────────────────────────
-const remotesRow  = document.getElementById('remotesRow');
-const remotesText = document.getElementById('remotesText');
-
+// ─── Update UI ──────
 function setStatus(connected, relayUrl, remoteCount) {
   if (connected) {
     statusDot.className = 'dot connected';
@@ -47,10 +45,10 @@ function setStatus(connected, relayUrl, remoteCount) {
   }
 }
 
-// ─── Copy remote URL to clipboard ────────────────────────────────────────────
+// ─── Copy remote link ──────
 copyBtn.addEventListener('click', () => {
   const relay = serverUrl.textContent || 'http://localhost:3000';
-  // Convert ws(s):// → http(s):// for a browser-openable URL
+  // convert wss:// → https:// so the URL is openable in a browser
   const remoteUrl = relay.replace(/^wss:\/\//, 'https://').replace(/^ws:\/\//, 'http://').replace(/\/$/, '') + '/remote';
 
   navigator.clipboard.writeText(remoteUrl).then(() => {

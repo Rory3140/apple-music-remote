@@ -1,25 +1,19 @@
-// background.js — MV3 Service Worker
-// Uses the browser's built-in WebSocket API (no external libraries needed).
-// Manages connection to the relay server and bridges messages between
-// the content script and remote devices.
+// background.js - MV3 service worker
+// Connects to the relay server as host and bridges messages to/from the Apple Music tab.
 
-// ─── Configuration ───────────────────────────────────────────────────────────
-// Change this to your deployed server URL when you deploy.
-// Use ws:// for http servers, wss:// for https servers.
 const RELAY_WS_URL = 'wss://apple-music-remote-802824893434.us-central1.run.app';
 
-// ─── State ───────────────────────────────────────────────────────────────────
 let ws = null;
 let isConnected = false;
 let reconnectTimer = null;
 let remoteCount = 0;
 
-// ─── Keep-Alive (prevent service worker from sleeping) ───────────────────────
-chrome.alarms.create('keepAlive', { periodInMinutes: 0.4 }); // every ~24 seconds
+// ─── Keep-alive ──────
+// MV3 service workers die after ~30s of inactivity, alarm keeps it and the WS alive
+chrome.alarms.create('keepAlive', { periodInMinutes: 0.4 });
 
 chrome.alarms.onAlarm.addListener((alarm) => {
   if (alarm.name === 'keepAlive') {
-    // Ping the server to keep both the WS connection and service worker alive
     if (ws && isConnected) {
       send({ type: 'ping' });
     } else if (!ws || ws.readyState === WebSocket.CLOSED) {
@@ -28,7 +22,7 @@ chrome.alarms.onAlarm.addListener((alarm) => {
   }
 });
 
-// ─── Connect to Relay Server ─────────────────────────────────────────────────
+// ─── Connect ──────
 function connect() {
   if (ws) {
     ws.onopen = ws.onmessage = ws.onerror = ws.onclose = null;
@@ -37,7 +31,6 @@ function connect() {
   }
 
   clearTimeout(reconnectTimer);
-  console.log('[background] Connecting to relay:', RELAY_WS_URL);
 
   try {
     ws = new WebSocket(RELAY_WS_URL);
@@ -49,7 +42,6 @@ function connect() {
 
   ws.onopen = () => {
     isConnected = true;
-    console.log('[background] Connected to relay server');
     send({ type: 'register', role: 'host' });
     broadcastStatus();
   };
@@ -59,14 +51,12 @@ function connect() {
       const data = JSON.parse(event.data);
       if (data.type === 'command') {
         const { type: _envelope, action, ...rest } = data;
-        console.log('[background] Received command:', action, rest);
         forwardToContentScript({ type: action, ...rest });
       }
       if (data.type === 'headcount') {
         remoteCount = data.remotes || 0;
         broadcastStatus();
       }
-      // 'pong' messages are silently ignored
     } catch (e) {
       console.warn('[background] Could not parse message:', event.data);
     }
@@ -79,7 +69,6 @@ function connect() {
   ws.onclose = (event) => {
     isConnected = false;
     ws = null;
-    console.warn('[background] Disconnected (code:', event.code, ')');
     broadcastStatus();
     scheduleReconnect();
   };
@@ -90,20 +79,16 @@ function scheduleReconnect() {
   reconnectTimer = setTimeout(connect, 3000);
 }
 
-// ─── Send helper ─────────────────────────────────────────────────────────────
+// ─── Helpers ──────
 function send(data) {
   if (ws && ws.readyState === WebSocket.OPEN) {
     ws.send(JSON.stringify(data));
   }
 }
 
-// ─── Forward command to Content Script ───────────────────────────────────────
 async function forwardToContentScript(data) {
   const tabId = await getAppleMusicTabId();
-  if (!tabId) {
-    console.warn('[background] No Apple Music tab found');
-    return;
-  }
+  if (!tabId) return;
   chrome.tabs.sendMessage(tabId, data).catch(() => {});
 }
 
@@ -115,10 +100,10 @@ async function getAppleMusicTabId() {
   });
 }
 
-// ─── Messages from Content Script ────────────────────────────────────────────
+// ─── Messages from content script ──────
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.type === 'MUSIC_STATE') {
-    // Strip 'MUSIC_STATE' type before sending — otherwise it overwrites 'state'
+    // strip the MUSIC_STATE wrapper before forwarding as a 'state' message
     const { type: _ignored, ...payload } = message;
     send({ type: 'state', ...payload });
     sendResponse({ ok: true });
@@ -131,11 +116,10 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   return true;
 });
 
-// ─── Broadcast Connection Status to Popup ────────────────────────────────────
 function broadcastStatus() {
+  // popup may not be open, so we swallow the error
   chrome.runtime.sendMessage({ type: 'CONNECTION_STATUS', connected: isConnected, remoteCount })
-    .catch(() => {}); // Popup may not be open
+    .catch(() => {});
 }
 
-// ─── Init ─────────────────────────────────────────────────────────────────────
 connect();

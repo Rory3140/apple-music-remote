@@ -1,9 +1,7 @@
-// content.js — Injected into music.apple.com
-// Bridges between the background service worker and the injected page script.
-// Cannot access MusicKit JS directly (isolated context), so it injects
-// injected.js into the real page scope and communicates via postMessage.
+// content.js - Injected into music.apple.com
+// Bridges the background worker and the page-scoped injected script via postMessage.
 
-// ─── Inject page-scope script ─────────────────────────────────────────────────
+// Injects page-scope script
 (function injectScript() {
   const script = document.createElement('script');
   script.src = chrome.runtime.getURL('injected.js');
@@ -11,7 +9,7 @@
   (document.head || document.documentElement).appendChild(script);
 })();
 
-// ─── Listen for messages from injected.js (page scope → content script) ──────
+// Listen for messages from injected.js
 window.addEventListener('message', (event) => {
   // Only accept messages from our own page
   if (event.source !== window) return;
@@ -21,15 +19,15 @@ window.addEventListener('message', (event) => {
     try {
       chrome.runtime.sendMessage(event.data).catch(() => {});
     } catch (_) {
-      // Extension context invalidated (extension reloaded) — refresh the page to reconnect
+      // Extension reloaded, refresh the page to reconnect
     }
   }
 });
 
-// ─── Listen for commands from background service worker ───────────────────────
+// Listens for commands from background service worker
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (['PLAY', 'PAUSE', 'TOGGLE_PLAY', 'NEXT', 'PREV', 'SEEK', 'SET_VOLUME', 'SET_REPEAT', 'SET_SHUFFLE'].includes(message.type)) {
-    // Forward command into the page scope so injected.js can act on it
+    // Forwards command into the page scope so injected.js can act on it
     window.postMessage(message, '*');
     sendResponse({ ok: true });
   }

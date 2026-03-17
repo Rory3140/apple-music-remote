@@ -1,10 +1,5 @@
-// injected.js — Runs in the actual page scope (not isolated context)
-// Has direct access to window.MusicKit. Communicates with content.js
-// via window.postMessage.
-//
-// NOTE: In MusicKit JS v3 for the web, playback properties (currentPlaybackTime,
-// currentPlaybackDuration, volume, seekToTime) live directly on the MusicKit
-// instance — NOT on a separate `.player` sub-object.
+// injected.js - Runs in the actual page scope, has direct access to window.MusicKit
+// Communicates with content.js via postMessage.
 
 (function () {
   'use strict';
@@ -12,7 +7,7 @@
   let musicKit = null;
   let stateInterval = null;
 
-  // ─── Initialise once MusicKit is ready ──────────────────────────────────────
+  // ─── Init ──────
   function init() {
     try {
       musicKit = MusicKit.getInstance();
@@ -21,16 +16,15 @@
       return;
     }
 
-    console.log('[injected] MusicKit instance acquired.');
     sendState();
     attachListeners();
 
-    // Push time updates every 2 seconds for the progress bar
+    // polls every 2s so the progress bar stays in sync
     if (stateInterval) clearInterval(stateInterval);
     stateInterval = setInterval(sendState, 2000);
   }
 
-  // ─── Wait for MusicKit to be available ──────────────────────────────────────
+  // MusicKit may already be on the window
   if (window.MusicKit) {
     try { init(); } catch (_) {}
   }
@@ -38,7 +32,7 @@
     try { init(); } catch (_) {}
   });
 
-  // ─── Attach MusicKit event listeners ────────────────────────────────────────
+  // ─── Attach MusicKit event listeners ──────
   function attachListeners() {
     const evts = [
       MusicKit.Events.playbackStateDidChange,
@@ -50,7 +44,7 @@
     });
   }
 
-  // ─── Build and send state ────────────────────────────────────────────────────
+  // ─── Post state to content.js ──────
   function sendState() {
     if (!musicKit) return;
 
@@ -68,15 +62,14 @@
     try { currentTime = musicKit.currentPlaybackTime     || 0; } catch (_) {}
     try { duration    = musicKit.currentPlaybackDuration || 0; } catch (_) {}
 
-    // Repeat: 0 = none, 1 = one, 2 = all
+    // repeat: 0 = none, 1 = one, 2 = all
     let repeatMode = 0;
     try { repeatMode = musicKit.repeatMode ?? 0; } catch (_) {}
 
-    // Shuffle: 0 = off, 1 = on
     let shuffleMode = 0;
     try { shuffleMode = musicKit.shuffleMode ?? 0; } catch (_) {}
 
-    // Queue: upcoming items after current position (max 20)
+    // next 20 items from current queue position
     let queue = [];
     try {
       const items = musicKit.queue?.items || [];
@@ -107,7 +100,7 @@
     }, '*');
   }
 
-  // ─── Artwork URL helper ──────────────────────────────────────────────────────
+  // ─── Artwork URL helper ──────
   function getArtworkUrl(item, size = 300) {
     try {
       return MusicKit.formatArtworkURL(item.artwork, size, size);
@@ -126,7 +119,7 @@
     return '';
   }
 
-  // ─── Handle commands from content.js ────────────────────────────────────────
+  // ─── Handle commands from content.js ──────
   window.addEventListener('message', async (event) => {
     if (event.source !== window) return;
     if (!event.data || !event.data.type) return;
