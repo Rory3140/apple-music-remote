@@ -20,6 +20,7 @@ struct ContentView: View {
     @State private var scrubRatio:  Double = 0
     @State private var volumeValue: Double = 0.8
 
+    // while scrubbing we show the drag position, otherwise real playback time
     private var displayProgress: Double {
         guard ws.musicState.duration > 0 else { return 0 }
         return isScrubbing
@@ -63,7 +64,6 @@ struct ContentView: View {
             }
             .scrollDisabled(true)
 
-            // No-host overlay
             if !ws.hostConnected {
                 noHostOverlay
             }
@@ -73,7 +73,7 @@ struct ContentView: View {
         }
     }
 
-    // MARK: Status bar
+    // MARK: - Status bar
 
     private var statusBar: some View {
         HStack {
@@ -95,7 +95,7 @@ struct ContentView: View {
         }
     }
 
-    // MARK: Artwork
+    // MARK: - Artwork
 
     private var artworkView: some View {
         let size = min(UIScreen.main.bounds.width * 0.72, 280.0)
@@ -127,7 +127,7 @@ struct ContentView: View {
         .animation(.easeInOut(duration: 0.3), value: ws.musicState.isPlaying)
     }
 
-    // MARK: Track info
+    // MARK: - Track info
 
     private var trackInfo: some View {
         VStack(spacing: 4) {
@@ -153,7 +153,7 @@ struct ContentView: View {
         }
     }
 
-    // MARK: Progress
+    // MARK: - Progress
 
     private var progressSection: some View {
         VStack(spacing: 6) {
@@ -196,27 +196,21 @@ struct ContentView: View {
         }
     }
 
-    // MARK: Controls
+    // MARK: - Controls
 
     private var controlsRow: some View {
         HStack(spacing: 20) {
-            // Shuffle
-            activeButton(
-                icon: "shuffle",
-                active: ws.musicState.shuffleMode == 1
-            ) {
+            activeButton(icon: "shuffle", active: ws.musicState.shuffleMode == 1) {
                 ws.sendCommand("SET_SHUFFLE",
                     extra: ["shuffleMode": ws.musicState.shuffleMode == 0 ? 1 : 0])
             }
 
-            // Prev
             Button { ws.sendCommand("PREV") } label: {
                 Image(systemName: "backward.fill")
                     .font(.system(size: 26))
                     .foregroundColor(.white)
             }
 
-            // Play / Pause
             Button { ws.sendCommand("TOGGLE_PLAY") } label: {
                 ZStack {
                     Circle()
@@ -229,18 +223,15 @@ struct ContentView: View {
                 }
             }
 
-            // Next
             Button { ws.sendCommand("NEXT") } label: {
                 Image(systemName: "forward.fill")
                     .font(.system(size: 26))
                     .foregroundColor(.white)
             }
 
-            // Repeat — cycles none(0) → all(2) → one(1) → none
-            activeButton(
-                icon: ws.musicState.repeatMode == 1 ? "repeat.1" : "repeat",
-                active: ws.musicState.repeatMode != 0
-            ) {
+            // cycles none(0) → all(2) → one(1) → none
+            activeButton(icon: ws.musicState.repeatMode == 1 ? "repeat.1" : "repeat",
+                         active: ws.musicState.repeatMode != 0) {
                 let next = ws.musicState.repeatMode == 0 ? 2
                          : ws.musicState.repeatMode == 2 ? 1 : 0
                 ws.sendCommand("SET_REPEAT", extra: ["repeatMode": next])
@@ -264,7 +255,7 @@ struct ContentView: View {
         }
     }
 
-    // MARK: Volume
+    // MARK: - Volume
 
     private var volumeRow: some View {
         HStack(spacing: 10) {
@@ -285,7 +276,7 @@ struct ContentView: View {
         .frame(maxWidth: 340)
     }
 
-    // MARK: Up Next button
+    // MARK: - Up Next
 
     private var upNextButton: some View {
         Button { showQueue = true } label: {
@@ -295,7 +286,7 @@ struct ContentView: View {
         }
     }
 
-    // MARK: No-host overlay
+    // MARK: - No host overlay
 
     private var noHostOverlay: some View {
         ZStack {
@@ -320,7 +311,7 @@ struct ContentView: View {
         }
     }
 
-    // MARK: Helpers
+    // MARK: - Helpers
 
     private func formatTime(_ seconds: Double) -> String {
         guard seconds.isFinite && seconds >= 0 else { return "0:00" }

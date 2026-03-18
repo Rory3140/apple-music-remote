@@ -1,11 +1,12 @@
 import Foundation
 
+// @MainActor ensures all @Published property changes happen on the main thread
 @MainActor
 class WebSocketManager: ObservableObject {
-    @Published var musicState   = MusicState()
-    @Published var isConnected  = false
+    @Published var musicState    = MusicState()
+    @Published var isConnected   = false
     @Published var hostConnected = false
-    @Published var remoteCount  = 0
+    @Published var remoteCount   = 0
 
     private var webSocketTask: URLSessionWebSocketTask?
     private var reconnectTask: Task<Void, Never>?
@@ -29,7 +30,7 @@ class WebSocketManager: ObservableObject {
         cancelTasks()
         webSocketTask?.cancel(with: .goingAway, reason: nil)
         webSocketTask = nil
-        isConnected  = false
+        isConnected   = false
     }
 
     private func cancelTasks() {
@@ -73,8 +74,8 @@ class WebSocketManager: ObservableObject {
         else { return }
 
         switch type {
-        case "state":            applyState(json)
-        case "host_connected":   hostConnected = true
+        case "state":             applyState(json)
+        case "host_connected":    hostConnected = true
         case "host_disconnected":
             hostConnected = false
             musicState    = MusicState()
@@ -104,8 +105,8 @@ class WebSocketManager: ObservableObject {
         if let q = json["queue"] as? [[String: Any]] {
             musicState.queue = q.map {
                 QueueItem(
-                    title:      ($0["title"]  as? String) ?? "",
-                    artist:     ($0["artist"] as? String) ?? "",
+                    title:      ($0["title"]   as? String) ?? "",
+                    artist:     ($0["artist"]  as? String) ?? "",
                     artworkURL: ($0["artwork"] as? String).flatMap(URL.init)
                 )
             }
@@ -122,9 +123,9 @@ class WebSocketManager: ObservableObject {
 
     private func sendRaw(_ data: [String: Any]) {
         guard
-            let task   = webSocketTask,
-            let json   = try? JSONSerialization.data(withJSONObject: data),
-            let text   = String(data: json, encoding: .utf8)
+            let task = webSocketTask,
+            let json = try? JSONSerialization.data(withJSONObject: data),
+            let text = String(data: json, encoding: .utf8)
         else { return }
         task.send(.string(text)) { _ in }
     }

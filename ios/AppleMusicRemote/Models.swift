@@ -14,6 +14,7 @@ struct MusicState {
 }
 
 struct QueueItem: Identifiable {
+    // stable ID based on content so SwiftUI reuses the row view and AsyncImage doesn't restart
     var id: String { "\(title)|\(artist)|\(artworkURL?.absoluteString ?? "")" }
     let title:      String
     let artist:     String

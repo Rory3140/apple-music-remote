@@ -11,11 +11,12 @@ struct AppleMusicRemoteApp: App {
                 .environmentObject(ws)
                 .preferredColorScheme(.dark)
         }
+        // connect/disconnect with app lifecycle to avoid ghost connections in the background
         .onChange(of: scenePhase) { phase in
             switch phase {
-            case .active:      ws.connect()
-            case .background:  ws.disconnect()
-            default:           break
+            case .active:     ws.connect()
+            case .background: ws.disconnect()
+            default:          break
             }
         }
     }

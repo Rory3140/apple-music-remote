@@ -44,11 +44,13 @@ struct QueueView: View {
                 }
             }
         }
+        // half-sheet by default, user can pull to full screen
         .presentationDetents([.medium, .large])
         .presentationDragIndicator(.visible)
         .preferredColorScheme(.dark)
     }
 
+    // @ViewBuilder lets us conditionally return different view types without wrapping in AnyView
     @ViewBuilder
     private func artwork(url: URL?) -> some View {
         Group {
