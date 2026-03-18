@@ -1,26 +1,28 @@
 # Apple Music Remote
 
-Control Apple Music on your computer from any phone, tablet, or other device — no app install required.
+Control Apple Music on your Mac from your phone or any other device — no app install needed on the remote end.
 
-A Chrome extension hooks into [music.apple.com](https://music.apple.com) and connects to a lightweight relay server. Any device that opens the remote page can instantly play, pause, skip, scrub, and control volume.
+Built as a Chrome extension that hooks into [music.apple.com](https://music.apple.com) and talks to a relay server deployed on Google Cloud Run. Any device that opens the remote URL can control playback instantly.
 
 ```
-[Chrome on your computer]          [Relay Server]          [Any device]
- Extension (MV3)           <-->    Node.js + ws   <-->     remote.html
- Hooks into MusicKit JS            Forwards messages        Play / Pause / Skip
+[Chrome on your Mac]               [Google Cloud Run]        [Remote device]
+ Extension (MV3)           <-->    Node.js relay     <-->    Browser or iOS app
+ Reads MusicKit JS                 Routes messages           Play / Pause / Skip / Queue
 ```
 
 ---
 
 ## Features
 
-- Play, pause, skip forward/back
-- Scrub through the song (click or drag the progress bar)
-- Volume control
-- Album artwork, track title, artist, and album display
+- Play, pause, skip, and scrub through tracks
+- Shuffle and repeat controls
+- Volume slider
+- Album artwork, title, artist, and album display
 - Live progress bar with timestamps
-- Works across any devices on the same network, or globally with a deployed server
-- No app install — remote UI runs entirely in the browser
+- Up Next queue view (next 20 tracks)
+- Multiple remotes can connect at once
+- Native iOS app (SwiftUI) as an alternative to the browser remote
+- Server deployed on Google Cloud Run — no local server needed
 
 ---
 
@@ -29,67 +31,75 @@ A Chrome extension hooks into [music.apple.com](https://music.apple.com) and con
 ```
 ├── extension/          Chrome MV3 extension
 │   ├── manifest.json
-│   ├── background.js   Service worker — manages WebSocket connection
-│   ├── content.js      Injected into music.apple.com
-│   ├── injected.js     Accesses MusicKit JS in page scope
-│   ├── popup.html/js   Extension popup (connection status)
+│   ├── background.js   Service worker — manages WebSocket connection to relay
+│   ├── content.js      Injected into music.apple.com, bridges page and worker
+│   ├── injected.js     Runs in page scope, reads and controls MusicKit JS
+│   └── popup.html/js   Extension popup showing connection status
 ├── server/             Node.js relay server
 │   ├── server.js
-│   ├── package.json
-│   └── .env
-└── remote/
-    └── remote.html     Self-contained mobile remote UI
+│   └── package.json
+├── remote/
+│   └── remote.html     Self-contained browser remote UI
+├── ios/                Native SwiftUI iOS app
+│   └── AppleMusicRemote/
+└── assets/             Icons
 ```
 
 ---
 
 ## Setup
 
-### 1. Start the relay server
+### 1. Load the Chrome extension
+
+1. Go to `chrome://extensions`
+2. Enable **Developer Mode**
+3. Click **Load unpacked** and select the `extension/` folder
+
+### 2. Open the remote
+
+The relay server is already deployed — just open the remote URL on any device:
+
+```
+https://apple-music-remote-802824893434.us-central1.run.app/remote
+```
+
+Or click **Copy Remote Link** from the extension popup.
+
+### 3. Play something
+
+Open [music.apple.com](https://music.apple.com) in Chrome and start playing. The remote will update automatically.
+
+---
+
+## Running the server locally
+
+If you want to run the relay yourself:
 
 ```bash
 cd server
 npm install
 node server.js
-# Running at http://localhost:3000
+# http://localhost:3000
 ```
 
-### 2. Load the Chrome extension
-
-1. Go to `chrome://extensions`
-2. Enable **Developer Mode**
-3. Click **Load unpacked** → select the `extension/` folder
-
-### 3. Open the remote
-
-Open `http://localhost:3000/remote` on any device on the same network.
-
-### 4. Play something
-
-Open [music.apple.com](https://music.apple.com) in Chrome and start playing. The remote will populate automatically.
+Then update `RELAY_WS_URL` in `extension/background.js` to point at your local server and reload the extension.
 
 ---
 
-## Deploying for cross-network access
+## iOS App
 
-Deploy `server/` to [Render](https://render.com), [Railway](https://railway.app), or [Fly.io](https://fly.io) (all have free tiers).
-
-Then update the WebSocket URL in `extension/background.js`:
-```js
-const RELAY_WS_URL = 'wss://your-app.onrender.com';
-```
-Reload the extension and share `https://your-app.onrender.com/remote` with any device.
+An alternative to the browser remote. Open the Xcode project in `ios/` and run it on a simulator or device. It connects to the same relay server and has the same controls plus a native sheet for the queue.
 
 ---
 
 ## How it works
 
-Chrome content scripts run in an isolated context and can't access `window.MusicKit` directly. The extension injects a script (`injected.js`) into the real page scope, which hooks into the MusicKit JS API to send state updates and execute playback commands. These are relayed to connected remote devices via a WebSocket server.
+Chrome content scripts run in an isolated context and can't access `window.MusicKit` directly. The extension injects a script into the actual page scope which reads playback state and executes commands through the MusicKit JS API. State is pushed up to the relay server every 2 seconds and on any playback event, then broadcast to all connected remotes. Commands from remotes travel back the other way.
 
 ---
 
 ## Known limitations
 
-- Requires an active Apple Music subscription and the user to be signed in
-- Apple can update `music.apple.com` at any time and break MusicKit JS hooks
-- MV3 service workers can go idle — a `chrome.alarms` keep-alive ping is used to prevent this
+- Requires an active Apple Music subscription
+- Apple can update music.apple.com at any time and break the MusicKit JS hooks
+- MV3 service workers go idle after ~30s — a `chrome.alarms` keep-alive prevents this
