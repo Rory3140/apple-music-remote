@@ -609,7 +609,7 @@
 
   const WS_URL = window.location.origin.replace(/^http/, 'ws');
 
-  // ── Elements ──────────────────────────────────────────────────────────────────
+  // ─── Elements ──────
   const statusDot    = document.getElementById('statusDot');
   const statusText   = document.getElementById('statusText');
   const remotesCount = document.getElementById('remotesCount');
@@ -640,17 +640,17 @@
   const queueDoneBtn = document.getElementById('queueDoneBtn');
   const queueList    = document.getElementById('queueList');
 
-  // ── State ─────────────────────────────────────────────────────────────────────
+  // ─── State ──────
   let isPlaying   = false;
   let currentTime = 0;
   let duration    = 0;
-  let repeatMode  = 0;   // 0=none, 1=one, 2=all
-  let shuffleMode = 0;   // 0=off, 1=on
+  let repeatMode  = 0;   // 0 = none, 1 = one, 2 = all
+  let shuffleMode = 0;   // 0 = off, 1 = on
   let ws          = null;
   let reconnectTimer = null;
   let isScrubbing = false;
 
-  // ── WebSocket ─────────────────────────────────────────────────────────────────
+  // ─── WebSocket ──────
   function connect() {
     if (ws) { ws.onopen = ws.onmessage = ws.onerror = ws.onclose = null; ws.close(); }
     clearTimeout(reconnectTimer);
@@ -682,7 +682,7 @@
   function scheduleReconnect() { reconnectTimer = setTimeout(connect, 3000); }
   function send(data) { if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(data)); }
 
-  // ── Headcount ─────────────────────────────────────────────────────────────────
+  // ─── Headcount ──────
   function updateHeadcount(remotes) {
     // Show sibling count (exclude self — server count includes this remote)
     const others = Math.max(0, (remotes || 0) - 1);
@@ -694,7 +694,7 @@
     }
   }
 
-  // ── Update UI from state ───────────────────────────────────────────────────────
+  // ─── Update UI from state ──────
   function updateUI(data) {
     isPlaying   = data.isPlaying;
     currentTime = data.currentTime || 0;
@@ -721,7 +721,7 @@
     // Shuffle button
     btnShuffle.classList.toggle('active', shuffleMode === 1);
 
-    // Repeat button — 0=off, 1=one, 2=all
+    // Repeat button — 0 = off, 1 = one, 2 = all
     btnRepeat.classList.toggle('active', repeatMode !== 0);
     iconRepeatAll.style.display = repeatMode === 1 ? 'none'  : 'block';
     iconRepeatOne.style.display = repeatMode === 1 ? 'block' : 'none';
@@ -733,11 +733,10 @@
       timeDuration.textContent = formatTime(duration);
     }
 
-    // Queue
     if (Array.isArray(data.queue)) updateQueue(data.queue);
   }
 
-  // ── Queue sheet ────────────────────────────────────────────────────────────────
+  // ─── Queue sheet ──────
   function updateQueue(items) {
     if (items.length === 0) {
       queueList.innerHTML = '<div class="queue-empty">Nothing queued</div>';
@@ -773,7 +772,7 @@
   queueDoneBtn.addEventListener('click', closeQueue);
   queueBackdrop.addEventListener('click', closeQueue);
 
-  // ── Queue sheet drag to dismiss ───────────────────────────────────────────────
+  // ─── Queue drag to dismiss ──────
   let dragStartY = 0;
   let dragCurrentY = 0;
   let isDraggingSheet = false;
@@ -818,7 +817,6 @@
     if (deltaY > sheetH * 0.35) {
       closeQueue();
     } else {
-      // Snap back
       queueSheet.style.transition = 'transform 0.3s cubic-bezier(0.32, 0.72, 0, 1)';
       queueSheet.style.transform = 'translateY(0)';
       queueBackdrop.style.opacity = '';
@@ -826,7 +824,7 @@
     }
   });
 
-  // ── Controls ──────────────────────────────────────────────────────────────────
+  // ─── Controls ──────
   btnPlayPause.addEventListener('click', () => sendCommand('TOGGLE_PLAY'));
   btnPrev.addEventListener('click',      () => sendCommand('PREV'));
   btnNext.addEventListener('click',      () => sendCommand('NEXT'));
@@ -848,7 +846,7 @@
     sendCommand('SET_REPEAT', { repeatMode: next });
   });
 
-  // ── Progress bar scrubbing ────────────────────────────────────────────────────
+  // ─── Progress bar scrubbing ──────
   let scrubSeekTimer = null;
 
   function getRatioFromEvent(e) {
@@ -903,7 +901,7 @@
     send({ type: 'command', action, ...extra });
   }
 
-  // ── Helpers ───────────────────────────────────────────────────────────────────
+  // ─── Helpers ──────
   function setConnectionStatus(connected) {
     statusDot.className = 'status-dot ' + (connected ? 'connected' : 'disconnected');
     statusText.textContent = connected ? 'Connected' : 'Reconnecting…';
@@ -926,7 +924,7 @@
 
   function escapeAttr(str) { return escapeHtml(str); }
 
-  // ── Init ──────────────────────────────────────────────────────────────────────
+  // ─── Init ──────
   connect();
 })();
 </script>
