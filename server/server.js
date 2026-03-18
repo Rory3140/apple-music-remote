@@ -8,8 +8,14 @@ const http      = require('http');
 const WebSocket = require('ws');
 const cors      = require('cors');
 const path      = require('path');
+const Anthropic = require('@anthropic-ai/sdk');
 
-const PORT = process.env.PORT || 3000;
+const PORT      = process.env.PORT || 3000;
+const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+
+// ─── Suggestions cache ──────
+// keyed by "title|artist" so we don't call the API for the same track twice
+const suggestionsCache = new Map();
 
 // ─── Express ──────
 const app = express();
@@ -33,6 +39,47 @@ app.get('/health', (_req, res) => {
     hosts: [...clients.values()].filter(c => c.role === 'host').length,
     remotes: [...clients.values()].filter(c => c.role === 'remote').length,
   });
+});
+
+// ─── AI Suggestions ──────
+// takes the current track + queue, asks Claude for 4 song suggestions
+app.post('/api/suggestions', async (req, res) => {
+  const { title, artist, album, queue } = req.body;
+
+  if (!title && !artist) return res.json({ suggestions: [] });
+
+  const cacheKey = `${title}|${artist}`;
+  if (suggestionsCache.has(cacheKey)) {
+    return res.json({ suggestions: suggestionsCache.get(cacheKey) });
+  }
+
+  try {
+    const queueList = Array.isArray(queue) && queue.length > 0
+      ? `\nAlready queued: ${queue.slice(0, 5).map(q => `"${q.title}" by ${q.artist}`).join(', ')}.`
+      : '';
+
+    const message = await anthropic.messages.create({
+      model:      'claude-opus-4-6',
+      max_tokens: 256,
+      messages: [{
+        role:    'user',
+        content: `The user is listening to "${title}" by ${artist}${album ? ` from "${album}"` : ''}.${queueList} Suggest 4 songs they might enjoy next — avoid anything already queued. Reply with ONLY a JSON array, no other text: [{"title":"...","artist":"..."}]`,
+      }],
+    });
+
+    const suggestions = JSON.parse(message.content[0].text.trim());
+
+    // cache and cap size so memory doesn't grow forever
+    suggestionsCache.set(cacheKey, suggestions);
+    if (suggestionsCache.size > 200) {
+      suggestionsCache.delete(suggestionsCache.keys().next().value);
+    }
+
+    res.json({ suggestions });
+  } catch (err) {
+    console.error('[suggestions] Error:', err.message);
+    res.status(500).json({ suggestions: [] });
+  }
 });
 
 // ─── Server setup ──────

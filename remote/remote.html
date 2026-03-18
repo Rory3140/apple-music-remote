@@ -436,6 +436,85 @@
       padding: 40px 20px;
     }
 
+    /* ── Suggestions ─────────────────────────────────────────────────────────── */
+    .suggestions-section {
+      width: 100%;
+      max-width: 340px;
+      margin-top: 8px;
+      margin-bottom: 16px;
+    }
+
+    .suggestions-header {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--muted);
+      margin-bottom: 10px;
+      padding: 0 2px;
+    }
+
+    .suggestions-header svg { width: 14px; height: 14px; flex-shrink: 0; }
+
+    .suggestion-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 8px 10px;
+      border-radius: 10px;
+      background: var(--surface);
+      margin-bottom: 6px;
+    }
+
+    .suggestion-icon {
+      width: 36px;
+      height: 36px;
+      border-radius: 6px;
+      background: var(--surface3);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      color: var(--muted);
+    }
+
+    .suggestion-icon svg { width: 16px; height: 16px; }
+
+    .suggestion-info { flex: 1; min-width: 0; }
+
+    .suggestion-title {
+      font-size: 13px;
+      font-weight: 500;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .suggestion-artist {
+      font-size: 12px;
+      color: var(--muted);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      margin-top: 1px;
+    }
+
+    /* skeleton shimmer while loading */
+    .suggestion-skeleton {
+      height: 52px;
+      border-radius: 10px;
+      background: linear-gradient(90deg, var(--surface) 25%, var(--surface2) 50%, var(--surface) 75%);
+      background-size: 200% 100%;
+      animation: shimmer 1.4s infinite;
+      margin-bottom: 6px;
+    }
+
+    @keyframes shimmer {
+      0%   { background-position: 200% 0; }
+      100% { background-position: -200% 0; }
+    }
+
     /* ── No host overlay ─────────────────────────────────────────────────────── */
     #noHostOverlay {
       position: fixed;
@@ -566,6 +645,15 @@
     </svg>
   </div>
 
+  <!-- AI Suggestions -->
+  <div class="suggestions-section" id="suggestionsSection" style="display:none">
+    <div class="suggestions-header">
+      <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l2.09 6.26L20 10l-5.91 1.74L12 18l-2.09-6.26L4 10l5.91-1.74z"/></svg>
+      Suggested for You
+    </div>
+    <div id="suggestionsList"></div>
+  </div>
+
   <!-- Up Next button -->
   <button class="up-next-btn" id="btnQueue">
     <svg viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
@@ -634,21 +722,24 @@
   const iconRepeatOne= document.getElementById('iconRepeatOne');
   const volumeSlider = document.getElementById('volumeSlider');
   const noHostOverlay= document.getElementById('noHostOverlay');
-  const btnQueue     = document.getElementById('btnQueue');
-  const queueSheet   = document.getElementById('queueSheet');
+  const btnQueue          = document.getElementById('btnQueue');
+  const suggestionsSection= document.getElementById('suggestionsSection');
+  const suggestionsList   = document.getElementById('suggestionsList');
+  const queueSheet        = document.getElementById('queueSheet');
   const queueBackdrop= document.getElementById('queueBackdrop');
   const queueDoneBtn = document.getElementById('queueDoneBtn');
   const queueList    = document.getElementById('queueList');
 
   // ─── State ──────
-  let isPlaying   = false;
-  let currentTime = 0;
-  let duration    = 0;
-  let repeatMode  = 0;   // 0 = none, 1 = one, 2 = all
-  let shuffleMode = 0;   // 0 = off, 1 = on
-  let ws          = null;
-  let reconnectTimer = null;
-  let isScrubbing = false;
+  let isPlaying    = false;
+  let currentTime  = 0;
+  let duration     = 0;
+  let repeatMode   = 0;   // 0 = none, 1 = one, 2 = all
+  let shuffleMode  = 0;   // 0 = off, 1 = on
+  let ws           = null;
+  let reconnectTimer   = null;
+  let isScrubbing      = false;
+  let lastSuggestedKey = null; // track key we last fetched suggestions for
 
   // ─── WebSocket ──────
   function connect() {
@@ -734,6 +825,44 @@
     }
 
     if (Array.isArray(data.queue)) updateQueue(data.queue);
+
+    // fetch AI suggestions whenever the track changes
+    const trackKey = `${data.title}|${data.artist}`;
+    if (data.title && trackKey !== lastSuggestedKey) {
+      lastSuggestedKey = trackKey;
+      fetchSuggestions(data.title, data.artist, data.album, data.queue || []);
+    }
+  }
+
+  // ─── AI Suggestions ──────
+  function fetchSuggestions(title, artist, album, queue) {
+    // show section with skeleton placeholders while we wait
+    suggestionsSection.style.display = 'block';
+    suggestionsList.innerHTML = [1, 2, 3, 4].map(() => '<div class="suggestion-skeleton"></div>').join('');
+
+    fetch('/api/suggestions', {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({ title, artist, album, queue }),
+    })
+      .then(r => r.json())
+      .then(({ suggestions }) => {
+        if (!suggestions || suggestions.length === 0) {
+          suggestionsSection.style.display = 'none';
+          return;
+        }
+        suggestionsList.innerHTML = suggestions.map(s => `
+          <div class="suggestion-item">
+            <div class="suggestion-icon">
+              <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 3v10.55A4 4 0 1 0 14 17V7h4V3h-6z"/></svg>
+            </div>
+            <div class="suggestion-info">
+              <div class="suggestion-title">${escapeHtml(s.title)}</div>
+              <div class="suggestion-artist">${escapeHtml(s.artist)}</div>
+            </div>
+          </div>`).join('');
+      })
+      .catch(() => { suggestionsSection.style.display = 'none'; });
   }
 
   // ─── Queue sheet ──────
