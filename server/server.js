@@ -74,7 +74,8 @@ app.post('/api/suggestions', async (req, res) => {
       messages: [{ role: 'user', content }],
     });
 
-    const suggestions = JSON.parse(message.content[0].text.trim());
+    const raw = message.content[0].text.trim().replace(/^```[\w]*\n?/, '').replace(/\n?```$/, '');
+    const suggestions = JSON.parse(raw);
 
     // cache and cap size so memory doesn't grow forever
     suggestionsCache.set(cacheKey, suggestions);
