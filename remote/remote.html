@@ -437,13 +437,6 @@
     }
 
     /* ── Suggestions ─────────────────────────────────────────────────────────── */
-    .suggestions-section {
-      width: 100%;
-      max-width: 340px;
-      margin-top: 8px;
-      margin-bottom: 16px;
-    }
-
     .suggestions-header {
       display: flex;
       align-items: center;
@@ -451,8 +444,9 @@
       font-size: 13px;
       font-weight: 600;
       color: var(--muted);
-      margin-bottom: 10px;
-      padding: 0 2px;
+      padding: 20px 20px 10px;
+      border-top: 1px solid rgba(255,255,255,0.06);
+      margin-top: 8px;
     }
 
     .suggestions-header svg { width: 14px; height: 14px; flex-shrink: 0; }
@@ -460,31 +454,27 @@
     .suggestion-item {
       display: flex;
       align-items: center;
-      gap: 10px;
-      padding: 8px 10px;
-      border-radius: 10px;
-      background: var(--surface);
-      margin-bottom: 6px;
+      gap: 12px;
+      padding: 8px 20px;
     }
 
-    .suggestion-icon {
-      width: 36px;
-      height: 36px;
+    .suggestion-item + .suggestion-item {
+      border-top: 1px solid rgba(255,255,255,0.06);
+    }
+
+    .suggestion-art {
+      width: 44px;
+      height: 44px;
       border-radius: 6px;
-      background: var(--surface3);
-      display: flex;
-      align-items: center;
-      justify-content: center;
+      object-fit: cover;
       flex-shrink: 0;
-      color: var(--muted);
+      background: var(--surface2);
     }
-
-    .suggestion-icon svg { width: 16px; height: 16px; }
 
     .suggestion-info { flex: 1; min-width: 0; }
 
     .suggestion-title {
-      font-size: 13px;
+      font-size: 15px;
       font-weight: 500;
       white-space: nowrap;
       overflow: hidden;
@@ -492,22 +482,21 @@
     }
 
     .suggestion-artist {
-      font-size: 12px;
+      font-size: 13px;
       color: var(--muted);
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
-      margin-top: 1px;
+      margin-top: 2px;
     }
 
     /* skeleton shimmer while loading */
     .suggestion-skeleton {
-      height: 52px;
-      border-radius: 10px;
+      height: 60px;
+      margin: 0 20px 1px;
       background: linear-gradient(90deg, var(--surface) 25%, var(--surface2) 50%, var(--surface) 75%);
       background-size: 200% 100%;
       animation: shimmer 1.4s infinite;
-      margin-bottom: 6px;
     }
 
     @keyframes shimmer {
@@ -645,15 +634,6 @@
     </svg>
   </div>
 
-  <!-- AI Suggestions -->
-  <div class="suggestions-section" id="suggestionsSection" style="display:none">
-    <div class="suggestions-header">
-      <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l2.09 6.26L20 10l-5.91 1.74L12 18l-2.09-6.26L4 10l5.91-1.74z"/></svg>
-      Suggested for You
-    </div>
-    <div id="suggestionsList"></div>
-  </div>
-
   <!-- Up Next button -->
   <button class="up-next-btn" id="btnQueue">
     <svg viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
@@ -679,6 +659,11 @@
   <div class="queue-list" id="queueList">
     <div class="queue-empty">Nothing queued</div>
   </div>
+  <div class="suggestions-header" id="suggestionsHeader" style="display:none">
+    <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l2.09 6.26L20 10l-5.91 1.74L12 18l-2.09-6.26L4 10l5.91-1.74z"/></svg>
+    Suggested for You
+  </div>
+  <div id="suggestionsList"></div>
 </div>
 
 <!-- No Host overlay -->
@@ -723,7 +708,7 @@
   const volumeSlider = document.getElementById('volumeSlider');
   const noHostOverlay= document.getElementById('noHostOverlay');
   const btnQueue          = document.getElementById('btnQueue');
-  const suggestionsSection= document.getElementById('suggestionsSection');
+  const suggestionsHeader = document.getElementById('suggestionsHeader');
   const suggestionsList   = document.getElementById('suggestionsList');
   const queueSheet        = document.getElementById('queueSheet');
   const queueBackdrop= document.getElementById('queueBackdrop');
@@ -836,8 +821,8 @@
 
   // ─── AI Suggestions ──────
   function fetchSuggestions(title, artist, album, artwork, queue) {
-    // show section with skeleton placeholders while we wait
-    suggestionsSection.style.display = 'block';
+    // show skeletons in the queue sheet while waiting
+    suggestionsHeader.style.display = 'flex';
     suggestionsList.innerHTML = [1, 2, 3, 4].map(() => '<div class="suggestion-skeleton"></div>').join('');
 
     fetch('/api/suggestions', {
@@ -848,21 +833,36 @@
       .then(r => r.json())
       .then(({ suggestions }) => {
         if (!suggestions || suggestions.length === 0) {
-          suggestionsSection.style.display = 'none';
+          suggestionsHeader.style.display = 'none';
+          suggestionsList.innerHTML = '';
           return;
         }
-        suggestionsList.innerHTML = suggestions.map(s => `
-          <div class="suggestion-item">
-            <div class="suggestion-icon">
-              <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 3v10.55A4 4 0 1 0 14 17V7h4V3h-6z"/></svg>
-            </div>
-            <div class="suggestion-info">
-              <div class="suggestion-title">${escapeHtml(s.title)}</div>
-              <div class="suggestion-artist">${escapeHtml(s.artist)}</div>
-            </div>
-          </div>`).join('');
+        // fetch artwork for each suggestion via iTunes Search API
+        return Promise.all(suggestions.map(s =>
+          fetch(`https://itunes.apple.com/search?term=${encodeURIComponent(s.artist + ' ' + s.title)}&entity=song&limit=1`)
+            .then(r => r.json())
+            .then(data => {
+              const art = data.results?.[0]?.artworkUrl100?.replace('100x100', '300x300') || null;
+              return { ...s, art };
+            })
+            .catch(() => ({ ...s, art: null }))
+        )).then(results => {
+          suggestionsList.innerHTML = results.map(s => `
+            <div class="suggestion-item">
+              ${s.art
+                ? `<img class="suggestion-art" src="${escapeAttr(s.art)}" alt="" />`
+                : `<div class="suggestion-art"></div>`}
+              <div class="suggestion-info">
+                <div class="suggestion-title">${escapeHtml(s.title)}</div>
+                <div class="suggestion-artist">${escapeHtml(s.artist)}</div>
+              </div>
+            </div>`).join('');
+        });
       })
-      .catch(() => { suggestionsSection.style.display = 'none'; });
+      .catch(() => {
+        suggestionsHeader.style.display = 'none';
+        suggestionsList.innerHTML = '';
+      });
   }
 
   // ─── Queue sheet ──────
