@@ -44,7 +44,7 @@ app.get('/health', (_req, res) => {
 // ─── AI Suggestions ──────
 // takes the current track + queue, asks Claude for 4 song suggestions
 app.post('/api/suggestions', async (req, res) => {
-  const { title, artist, album, queue } = req.body;
+  const { title, artist, album, artwork, queue } = req.body;
 
   if (!title && !artist) return res.json({ suggestions: [] });
 
@@ -58,13 +58,20 @@ app.post('/api/suggestions', async (req, res) => {
       ? `\nAlready queued: ${queue.slice(0, 5).map(q => `"${q.title}" by ${q.artist}`).join(', ')}.`
       : '';
 
+    const textPrompt = `The user is listening to "${title}" by ${artist}${album ? ` from "${album}"` : ''}.${queueList} Suggest 4 songs they might enjoy next — avoid anything already queued. Reply with ONLY a JSON array, no other text: [{"title":"...","artist":"..."}]`;
+
+    // include album art as visual context if available
+    const content = artwork
+      ? [
+          { type: 'image', source: { type: 'url', url: artwork } },
+          { type: 'text', text: textPrompt },
+        ]
+      : textPrompt;
+
     const message = await anthropic.messages.create({
       model:      'claude-opus-4-6',
       max_tokens: 256,
-      messages: [{
-        role:    'user',
-        content: `The user is listening to "${title}" by ${artist}${album ? ` from "${album}"` : ''}.${queueList} Suggest 4 songs they might enjoy next — avoid anything already queued. Reply with ONLY a JSON array, no other text: [{"title":"...","artist":"..."}]`,
-      }],
+      messages: [{ role: 'user', content }],
     });
 
     const suggestions = JSON.parse(message.content[0].text.trim());

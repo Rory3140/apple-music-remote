@@ -830,12 +830,12 @@
     const trackKey = `${data.title}|${data.artist}`;
     if (data.title && trackKey !== lastSuggestedKey) {
       lastSuggestedKey = trackKey;
-      fetchSuggestions(data.title, data.artist, data.album, data.queue || []);
+      fetchSuggestions(data.title, data.artist, data.album, data.artwork || null, data.queue || []);
     }
   }
 
   // ─── AI Suggestions ──────
-  function fetchSuggestions(title, artist, album, queue) {
+  function fetchSuggestions(title, artist, album, artwork, queue) {
     // show section with skeleton placeholders while we wait
     suggestionsSection.style.display = 'block';
     suggestionsList.innerHTML = [1, 2, 3, 4].map(() => '<div class="suggestion-skeleton"></div>').join('');
@@ -843,7 +843,7 @@
     fetch('/api/suggestions', {
       method:  'POST',
       headers: { 'Content-Type': 'application/json' },
-      body:    JSON.stringify({ title, artist, album, queue }),
+      body:    JSON.stringify({ title, artist, album, artwork, queue }),
     })
       .then(r => r.json())
       .then(({ suggestions }) => {
