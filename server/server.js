@@ -58,7 +58,7 @@ app.post('/api/suggestions', async (req, res) => {
       ? `\nAlready queued: ${queue.slice(0, 5).map(q => `"${q.title}" by ${q.artist}`).join(', ')}.`
       : '';
 
-    const textPrompt = `The user is listening to "${title}" by ${artist}${album ? ` from "${album}"` : ''}.${queueList} Suggest 4 songs they might enjoy next — avoid anything already queued. Reply with ONLY a JSON array, no other text: [{"title":"...","artist":"..."}]`;
+    const textPrompt = `The user is listening to "${title}" by ${artist}${album ? ` from "${album}"` : ''}.${queueList} Suggest 5 songs they might enjoy next — avoid anything already queued. Reply with ONLY a JSON array, no other text: [{"title":"...","artist":"..."}]`;
 
     // include album art as visual context if available
     const content = artwork

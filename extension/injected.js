@@ -78,9 +78,10 @@
         const it = items[i];
         if (!it) continue;
         queue.push({
-          title:   it.title      || it.attributes?.name       || '',
-          artist:  it.artistName || it.attributes?.artistName || '',
-          artwork: getArtworkUrl(it),
+          title:      it.title      || it.attributes?.name       || '',
+          artist:     it.artistName || it.attributes?.artistName || '',
+          artwork:    getArtworkUrl(it),
+          queueIndex: i,
         });
       }
     } catch (_) {}
@@ -125,7 +126,7 @@
     if (!event.data || !event.data.type) return;
     if (!musicKit) return;
 
-    const { type, seekTime, volume, repeatMode, shuffleMode } = event.data;
+    const { type, seekTime, volume, repeatMode, shuffleMode, queueIndex, suggestionTerm } = event.data;
 
     try {
       switch (type) {
@@ -156,6 +157,15 @@
         case 'SET_SHUFFLE':
           if (typeof shuffleMode === 'number') musicKit.shuffleMode = shuffleMode;
           break;
+        case 'PLAY_QUEUE_ITEM':
+          if (typeof queueIndex === 'number') await musicKit.changeToMediaAtIndex(queueIndex);
+          break;
+        case 'PLAY_SUGGESTION': {
+          const res = await musicKit.api.music(`/v1/catalog/${musicKit.storefrontId}/search`, { parameters: { term: suggestionTerm, types: 'songs', limit: '1' } });
+          const songId = res.data.results.songs?.data[0]?.id;
+          if (songId) { await musicKit.playNext({ song: songId }); await musicKit.skipToNextItem(); }
+          break;
+        }
         default:
           return;
       }

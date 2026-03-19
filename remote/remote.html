@@ -394,7 +394,10 @@
       align-items: center;
       gap: 12px;
       padding: 8px 20px;
+      cursor: pointer;
     }
+
+    .queue-item:active { opacity: 0.6; }
 
     .queue-item + .queue-item {
       border-top: 1px solid rgba(255,255,255,0.06);
@@ -465,7 +468,10 @@
       align-items: center;
       gap: 12px;
       padding: 8px 20px;
+      cursor: pointer;
     }
+
+    .suggestion-item:active { opacity: 0.6; }
 
     .suggestion-item + .suggestion-item {
       border-top: 1px solid rgba(255,255,255,0.06);
@@ -860,13 +866,21 @@
           fetch(`https://itunes.apple.com/search?term=${encodeURIComponent(s.artist + ' ' + s.title)}&entity=song&limit=1`)
             .then(r => r.json())
             .then(data => {
-              const art = data.results?.[0]?.artworkUrl100?.replace('100x100', '300x300') || null;
+              const hit = data.results?.[0];
+              if (!hit) return null; // not on Apple Music — skip
+              const art = hit.artworkUrl100?.replace('100x100', '300x300') || null;
               return { ...s, art };
             })
-            .catch(() => ({ ...s, art: null }))
+            .catch(() => null)
         )).then(results => {
-          suggestionsList.innerHTML = results.map(s => `
-            <div class="suggestion-item">
+          const verified = results.filter(Boolean);
+          if (verified.length === 0) {
+            suggestionsHeader.style.display = 'none';
+            suggestionsList.innerHTML = '';
+            return;
+          }
+          suggestionsList.innerHTML = verified.map(s => `
+            <div class="suggestion-item" data-term="${escapeAttr(s.title + ' ' + s.artist)}">
               <div class="suggestion-art-wrap">
                 ${s.art ? `<img class="suggestion-art" src="${escapeAttr(s.art)}" alt="" />` : ''}
               </div>
@@ -875,6 +889,12 @@
                 <div class="suggestion-artist">${escapeHtml(s.artist)}</div>
               </div>
             </div>`).join('');
+
+          suggestionsList.querySelectorAll('.suggestion-item').forEach(el => {
+            el.addEventListener('click', () => {
+              sendCommand('PLAY_SUGGESTION', { suggestionTerm: el.dataset.term });
+            });
+          });
         });
       })
       .catch(() => {
@@ -889,8 +909,8 @@
       queueList.innerHTML = '<div class="queue-empty">Nothing queued</div>';
       return;
     }
-    queueList.innerHTML = items.map(it => `
-      <div class="queue-item">
+    queueList.innerHTML = items.map((it, i) => `
+      <div class="queue-item" data-queue-index="${it.queueIndex ?? i}">
         <div class="qi-art-wrap">
           ${it.artwork ? `<img class="qi-art" src="${escapeAttr(it.artwork)}" alt="" />` : ''}
         </div>
@@ -899,6 +919,12 @@
           <div class="qi-artist">${escapeHtml(it.artist)}</div>
         </div>
       </div>`).join('');
+
+    queueList.querySelectorAll('.queue-item').forEach(el => {
+      el.addEventListener('click', () => {
+        sendCommand('PLAY_QUEUE_ITEM', { queueIndex: Number(el.dataset.queueIndex) });
+      });
+    });
   }
 
   function openQueue() {
