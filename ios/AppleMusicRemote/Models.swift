@@ -19,4 +19,13 @@ struct QueueItem: Identifiable {
     let title:      String
     let artist:     String
     let artworkURL: URL?
+    let queueIndex: Int
+}
+
+struct Suggestion: Identifiable {
+    var id: String { "\(title)|\(artist)" }
+    let title:      String
+    let artist:     String
+    let artworkURL: URL?
+    let trackId:    String  // iTunes track ID, used directly as Apple Music catalog ID
 }

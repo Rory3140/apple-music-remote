@@ -7,10 +7,14 @@ class WebSocketManager: ObservableObject {
     @Published var isConnected   = false
     @Published var hostConnected = false
     @Published var remoteCount   = 0
+    @Published var suggestions:  [Suggestion] = []
 
-    private var webSocketTask: URLSessionWebSocketTask?
-    private var reconnectTask: Task<Void, Never>?
-    private var receiveTask:   Task<Void, Never>?
+    private var webSocketTask:      URLSessionWebSocketTask?
+    private var reconnectTask:      Task<Void, Never>?
+    private var receiveTask:        Task<Void, Never>?
+    private var lastSuggestedKey =  ""
+
+    private let apiBase = "https://apple-music-remote-802824893434.us-central1.run.app"
 
     private let serverURL = URL(string: "wss://apple-music-remote-802824893434.us-central1.run.app")!
 
@@ -105,12 +109,77 @@ class WebSocketManager: ObservableObject {
         if let q = json["queue"] as? [[String: Any]] {
             musicState.queue = q.map {
                 QueueItem(
-                    title:      ($0["title"]   as? String) ?? "",
-                    artist:     ($0["artist"]  as? String) ?? "",
-                    artworkURL: ($0["artwork"] as? String).flatMap(URL.init)
+                    title:      ($0["title"]      as? String) ?? "",
+                    artist:     ($0["artist"]     as? String) ?? "",
+                    artworkURL: ($0["artwork"]    as? String).flatMap(URL.init),
+                    queueIndex: ($0["queueIndex"] as? Int)    ?? 0
                 )
             }
         }
+
+        // fetch suggestions when the track changes
+        let key = "\(musicState.title)|\(musicState.artist)"
+        if key != lastSuggestedKey && !musicState.title.isEmpty {
+            lastSuggestedKey = key
+            Task { await fetchSuggestions() }
+        }
+    }
+
+    // MARK: - Suggestions
+
+    // calls the relay's /api/suggestions endpoint then verifies each result against iTunes
+    func fetchSuggestions() async {
+        var request = URLRequest(url: URL(string: "\(apiBase)/api/suggestions")!)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+
+        let body: [String: Any] = [
+            "title":   musicState.title,
+            "artist":  musicState.artist,
+            "album":   musicState.album,
+            "artwork": musicState.artworkURL?.absoluteString ?? "",
+            "queue":   musicState.queue.map { ["title": $0.title, "artist": $0.artist] }
+        ]
+        request.httpBody = try? JSONSerialization.data(withJSONObject: body)
+
+        guard
+            let (data, _) = try? await URLSession.shared.data(for: request),
+            let json      = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+            let results   = json["suggestions"] as? [[String: Any]]
+        else { return }
+
+        // verify each suggestion exists on Apple Music via iTunes Search, get artwork + trackId
+        var verified: [Suggestion] = []
+        await withTaskGroup(of: Suggestion?.self) { group in
+            for s in results {
+                guard let title  = s["title"]  as? String,
+                      let artist = s["artist"] as? String else { continue }
+                group.addTask {
+                    let term   = "\(artist) \(title)".addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? ""
+                    let url    = URL(string: "https://itunes.apple.com/search?term=\(term)&entity=song&limit=1")!
+                    guard
+                        let (data, _) = try? await URLSession.shared.data(from: url),
+                        let json      = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+                        let hits      = json["results"] as? [[String: Any]],
+                        let hit       = hits.first,
+                        let trackId   = hit["trackId"]      as? Int,
+                        let artStr    = hit["artworkUrl100"] as? String
+                    else { return nil }
+
+                    return Suggestion(
+                        title:      title,
+                        artist:     artist,
+                        artworkURL: URL(string: artStr.replacingOccurrences(of: "100x100", with: "300x300")),
+                        trackId:    String(trackId)
+                    )
+                }
+            }
+            for await result in group {
+                if let s = result { verified.append(s) }
+            }
+        }
+
+        suggestions = verified
     }
 
     // MARK: - Send

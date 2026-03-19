@@ -69,7 +69,7 @@ struct ContentView: View {
             }
         }
         .sheet(isPresented: $showQueue) {
-            QueueView(queue: ws.musicState.queue)
+            QueueView()
         }
     }
 
