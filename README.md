@@ -19,7 +19,8 @@ Built as a Chrome extension that hooks into [music.apple.com](https://music.appl
 - Volume slider
 - Album artwork, title, artist, and album display
 - Live progress bar with timestamps
-- Up Next queue view (next 20 tracks)
+- Up Next queue view (next 20 tracks) — tap any track to jump to it
+- AI-powered song suggestions based on the current track and album art, verified against Apple Music and clickable to play
 - Multiple remotes can connect at once
 - Native iOS app (SwiftUI) as an alternative to the browser remote
 - Server deployed on Google Cloud Run — no local server needed
@@ -88,13 +89,15 @@ Then update `RELAY_WS_URL` in `extension/background.js` to point at your local s
 
 ## iOS App
 
-An alternative to the browser remote. Open the Xcode project in `ios/` and run it on a simulator or device. It connects to the same relay server and has the same controls plus a native sheet for the queue.
+An alternative to the browser remote. Open the Xcode project in `ios/` and run it on a simulator or device. It connects to the same relay server and has the same controls plus a native sheet for the queue and suggestions.
 
 ---
 
 ## How it works
 
 Chrome content scripts run in an isolated context and can't access `window.MusicKit` directly. The extension injects a script into the actual page scope which reads playback state and executes commands through the MusicKit JS API. State is pushed up to the relay server every 2 seconds and on any playback event, then broadcast to all connected remotes. Commands from remotes travel back the other way.
+
+When a track changes, the server calls the Claude API with the current track, album art, and queue context to generate song suggestions. Each suggestion is verified against the iTunes Search API before being shown, and clicking one queues it up and plays it immediately.
 
 ---
 
