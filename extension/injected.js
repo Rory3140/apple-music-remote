@@ -126,7 +126,7 @@
     if (!event.data || !event.data.type) return;
     if (!musicKit) return;
 
-    const { type, seekTime, volume, repeatMode, shuffleMode, queueIndex, suggestionTerm } = event.data;
+    const { type, seekTime, volume, repeatMode, shuffleMode, queueIndex, suggestionTerm, songId } = event.data;
 
     try {
       switch (type) {
@@ -161,9 +161,13 @@
           if (typeof queueIndex === 'number') await musicKit.changeToMediaAtIndex(queueIndex);
           break;
         case 'PLAY_SUGGESTION': {
-          const res = await musicKit.api.music(`/v1/catalog/${musicKit.storefrontId}/search`, { parameters: { term: suggestionTerm, types: 'songs', limit: '1' } });
-          const songId = res.data.results.songs?.data[0]?.id;
-          if (songId) { await musicKit.playNext({ song: songId }); await musicKit.skipToNextItem(); }
+          let id = songId;
+          if (!id) {
+            const storefront = musicKit.storefrontId || 'us';
+            const res = await musicKit.api.music(`/v1/catalog/${storefront}/search`, { parameters: { term: suggestionTerm, types: 'songs', limit: '1' } });
+            id = res.data?.results?.songs?.data?.[0]?.id;
+          }
+          if (id) { await musicKit.playNext({ song: String(id) }); await musicKit.skipToNextItem(); }
           break;
         }
         default:
