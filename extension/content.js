@@ -26,7 +26,7 @@ window.addEventListener('message', (event) => {
 
 // Listens for commands from background service worker
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-  if (['PLAY', 'PAUSE', 'TOGGLE_PLAY', 'NEXT', 'PREV', 'SEEK', 'SET_VOLUME', 'SET_REPEAT', 'SET_SHUFFLE'].includes(message.type)) {
+  if (['PLAY', 'PAUSE', 'TOGGLE_PLAY', 'NEXT', 'PREV', 'SEEK', 'SET_VOLUME', 'SET_REPEAT', 'SET_SHUFFLE', 'PLAY_QUEUE_ITEM', 'PLAY_SUGGESTION'].includes(message.type)) {
     // Forwards command into the page scope so injected.js can act on it
     window.postMessage(message, '*');
     sendResponse({ ok: true });
