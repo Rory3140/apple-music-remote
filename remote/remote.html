@@ -381,11 +381,13 @@
       -webkit-tap-highlight-color: transparent;
     }
 
-    .queue-list {
+    .queue-scroll {
       overflow-y: auto;
       flex: 1;
       -webkit-overflow-scrolling: touch;
     }
+
+    .queue-list {}
 
     .queue-item {
       display: flex;
@@ -398,13 +400,20 @@
       border-top: 1px solid rgba(255,255,255,0.06);
     }
 
-    .qi-art {
+    .qi-art-wrap {
       width: 44px;
       height: 44px;
       border-radius: 6px;
-      object-fit: cover;
+      overflow: hidden;
       flex-shrink: 0;
       background: var(--surface2);
+    }
+
+    .qi-art {
+      width: 44px;
+      height: 44px;
+      object-fit: cover;
+      display: block;
     }
 
     .qi-info {
@@ -462,13 +471,20 @@
       border-top: 1px solid rgba(255,255,255,0.06);
     }
 
-    .suggestion-art {
+    .suggestion-art-wrap {
       width: 44px;
       height: 44px;
       border-radius: 6px;
-      object-fit: cover;
+      overflow: hidden;
       flex-shrink: 0;
       background: var(--surface2);
+    }
+
+    .suggestion-art {
+      width: 44px;
+      height: 44px;
+      object-fit: cover;
+      display: block;
     }
 
     .suggestion-info { flex: 1; min-width: 0; }
@@ -656,14 +672,16 @@
     <h2>Up Next</h2>
     <button class="queue-done-btn" id="queueDoneBtn">Done</button>
   </div>
-  <div class="queue-list" id="queueList">
-    <div class="queue-empty">Nothing queued</div>
+  <div class="queue-scroll" id="queueScroll">
+    <div class="queue-list" id="queueList">
+      <div class="queue-empty">Nothing queued</div>
+    </div>
+    <div class="suggestions-header" id="suggestionsHeader" style="display:none">
+      <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l2.09 6.26L20 10l-5.91 1.74L12 18l-2.09-6.26L4 10l5.91-1.74z"/></svg>
+      Suggested for You
+    </div>
+    <div id="suggestionsList"></div>
   </div>
-  <div class="suggestions-header" id="suggestionsHeader" style="display:none">
-    <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l2.09 6.26L20 10l-5.91 1.74L12 18l-2.09-6.26L4 10l5.91-1.74z"/></svg>
-    Suggested for You
-  </div>
-  <div id="suggestionsList"></div>
 </div>
 
 <!-- No Host overlay -->
@@ -849,9 +867,9 @@
         )).then(results => {
           suggestionsList.innerHTML = results.map(s => `
             <div class="suggestion-item">
-              ${s.art
-                ? `<img class="suggestion-art" src="${escapeAttr(s.art)}" alt="" />`
-                : `<div class="suggestion-art"></div>`}
+              <div class="suggestion-art-wrap">
+                ${s.art ? `<img class="suggestion-art" src="${escapeAttr(s.art)}" alt="" />` : ''}
+              </div>
               <div class="suggestion-info">
                 <div class="suggestion-title">${escapeHtml(s.title)}</div>
                 <div class="suggestion-artist">${escapeHtml(s.artist)}</div>
@@ -873,9 +891,9 @@
     }
     queueList.innerHTML = items.map(it => `
       <div class="queue-item">
-        ${it.artwork
-          ? `<img class="qi-art" src="${escapeAttr(it.artwork)}" alt="" />`
-          : `<div class="qi-art"></div>`}
+        <div class="qi-art-wrap">
+          ${it.artwork ? `<img class="qi-art" src="${escapeAttr(it.artwork)}" alt="" />` : ''}
+        </div>
         <div class="qi-info">
           <div class="qi-title">${escapeHtml(it.title)}</div>
           <div class="qi-artist">${escapeHtml(it.artist)}</div>
