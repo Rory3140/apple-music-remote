@@ -1,6 +1,6 @@
 # Apple Music Remote
 
-Control Apple Music on your Mac from your phone or any other device — no app install needed on the remote end.
+Control Apple Music on your Mac from your phone or any other device — no app install needed on the remote end. 
 
 Built as a Chrome extension that hooks into [music.apple.com](https://music.apple.com) and talks to a relay server deployed on Google Cloud Run. Any device that opens the remote URL can control playback instantly.
 
